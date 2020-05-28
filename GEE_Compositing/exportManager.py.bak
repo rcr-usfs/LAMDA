@@ -1,5 +1,5 @@
 
-import os,sys,threading,urllib.request,urllib.parse,urllib.error,math,json,oauth2client,ee,time,datetime
+import os,sys,threading,urllib,math,json,oauth2client,ee,time,datetime
 
 # cwd = '//166.2.126.25/rseat/Programs/FHTET_RTFD/Scripts/'
 cwd = 'Q:/rtfd_gee_compositing/'
@@ -11,13 +11,13 @@ def glob(Dir, extension):
     Dir = check_end(Dir)
     if type(extension) != list:
         if extension.find('*') == -1:
-            return [Dir + i for i in [i for i in os.listdir(Dir) if os.path.splitext(i)[1] == extension]]
+            return map(lambda i : Dir + i, filter(lambda i: os.path.splitext(i)[1] == extension, os.listdir(Dir)))
         else:
-            return [Dir + i for i in os.listdir(Dir)]
+            return map(lambda i : Dir + i, os.listdir(Dir))
     else:
         out_list = []
         for ext in extension:
-            tl = [Dir + i for i in [i for i in os.listdir(Dir) if os.path.splitext(i)[1] == ext]]
+            tl = map(lambda i : Dir + i, filter(lambda i: os.path.splitext(i)[1] == ext, os.listdir(Dir)))
             for l in tl:
                 out_list.append(l)
         return out_list
@@ -32,9 +32,8 @@ def check_end(in_path, add = '/'):
 ######################################################################################
 def new_set_maker(in_list,threads):
 
-    print (threads)
     out_sets =[]
-    for t in range(threads):
+    for t in list(range(threads)):
         out_sets.append([])
     i =0
     for il in in_list:
@@ -56,8 +55,8 @@ def GetPersistentCredentials(credentials):
     return credents
 credentials_dir = 'D:/rtfd_gee_compositing/eeCredentials/'
 credentials = glob(credentials_dir,'')
-credentials = [i for i in credentials if os.path.isdir(i) == False]
-nCredentials = len(list(credentials))
+credentials = filter(lambda i: os.path.isdir(i) == False,credentials)
+nCredentials = list(credentials)
 ##############################################################################################
 def trackTasks(credential_name,id_list,task_count = 1):
 	while task_count > 0:
@@ -68,11 +67,11 @@ def trackTasks(credential_name,id_list,task_count = 1):
 		running_names = [[str(i['description']),str(datetime.timedelta(seconds = int(((time.time()*1000)-int(i['start_timestamp_ms']))/1000)))] for i in running]
 		now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 		print(credential_name)
-		print((len(ready),'tasks ready',now))
-		print((len(running),'tasks running',now))
+		print(len(ready),'tasks ready',now)
+		print(len(running),'tasks running',now)
 		print('Running names:')
 		for rn in running_names:print(rn)
-		print()
-		print()
+		print
+		print
 		time.sleep(5)
 		task_count = len(ready) +len(running) 
