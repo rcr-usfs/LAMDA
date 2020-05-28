@@ -298,7 +298,7 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
         
         medoidBaseline = medoidBaseline.updateMask(medoidBaseline.mask().reduce(ee.Reducer.min()))
 
-        Map.addLayer(medoidBaseline,vizParams,str(startYearT) + '_' + str(endYearT) + '_'+ str(startJulianT)+'_'+str(endJulianT))
+        # Map.addLayer(medoidBaseline,vizParams,str(startYearT) + '_' + str(endYearT) + '_'+ str(startJulianT)+'_'+str(endJulianT))
         id_list = []
         #Iterate across each MZ
         for mz in mzs:
@@ -308,7 +308,7 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
                 outputName =  exportName+'MZ'+format(mz, '02') + '_' +str(startYearT) + '_' + str(endYearT) + '_'+ format(startJulianT, '03')+'_'+format(endJulianT, '03')
                 # fullOutputName = exportLocalFolder + outputName + '.zip'
                 #Filter out the MZ outine
-                mzT = mzsF.filterMetadata('name','equals',mz).geometry()
+                mzT = mzsF.filter(ee.Filter.eq('FTP_Zone',mz)).geometry()
 
                 #Clip medoid composite to MZ outlien
                 imageT = medoidBaseline.clip(mzT)
@@ -318,12 +318,15 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
                 imageT = imageT.select(exportBands).multiply(multExportBands).int16()
                 imageT = setNoData(imageT,noDataValue)
                 
+               
                 t = ee.batch.Export.image.toCloudStorage(imageT, outputName, gs_bucket, outputName, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, str(transform), 1e13)
-                
+                # t = ee.batch.Export.image.toCloudStorage(image,name, gs_bucket, name, None, boundary.bounds(100,crs).transform('EPSG:4326', 100).getInfo()['coordinates'][0], None, crs, str(transform), 1e13,256,256*75)
+  
+
                 # t = ee.batch.Export.image.toDrive(imageT, outputName, exportDriveFolder, None, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, transform, 1e13)
                 
                 id_list.append(outputName)
-                # t.start()
+                t.start()
                 # print(t)
         # Map.view()
         return id_list
@@ -372,7 +375,7 @@ def batchExport():
 
         while len(multiprocessing.process.active_children()) > 0:
                 print (len(multiprocessing.process.active_children())),':active export processes'
-                syncer()
+                # syncer()
                 time.sleep(1)
 def syncer():
         print(syncCommand)

@@ -2,7 +2,7 @@
 import os,sys,threading,urllib.request,urllib.parse,urllib.error,math,json,oauth2client,ee,time,datetime
 
 # cwd = '//166.2.126.25/rseat/Programs/FHTET_RTFD/Scripts/'
-cwd = 'Q:/rtfd_gee_compositing/'
+# cwd = 'Q:/rtfd_gee_compositing/'
 
 ##############################################################################################
 #Returns all files containing an extension or any of a list of extensions
@@ -55,6 +55,7 @@ def GetPersistentCredentials(credentials):
              None, 'https://accounts.google.com/o/oauth2/token', None)
     return credents
 credentials_dir = 'D:/rtfd_gee_compositing/eeCredentials/'
+if os.path.exists(credentials_dir) == False: credentials_dir = 'Q:/rtfd_gee_compositing/eeCredentials/'
 credentials = glob(credentials_dir,'')
 credentials = [i for i in credentials if os.path.isdir(i) == False]
 nCredentials = len(list(credentials))
