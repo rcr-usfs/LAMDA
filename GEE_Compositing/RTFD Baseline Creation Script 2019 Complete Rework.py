@@ -43,7 +43,7 @@ ellenwoodMask = ee.ImageCollection('projects/USFS/FHAAST/RTFD/Ellenwood_Forest_M
 
 mzs = ee.List.sequence(1,14).getInfo()#MZs to export
 
-mzsF = ee.FeatureCollection('ft:1wBkR7n3bu7kV-H3ZlJ-SJ9E20G_h6nKoNaJ-AJu2')
+mzsF = ee.FeatureCollection('projects/USFS/LCMS-NFS/CONUS-Ancillary-Data/USGS_Multizones')
 
 studyArea = mzsF
 
@@ -53,7 +53,7 @@ studyArea = mzsF
 #compositingPeriod is the number of days to include in each composite
 #compositingFrequency is how often composites will be created
 #compositingPeriods is the number of periods (composites) that will be created
-startJulian = 57
+startJulian = 49
 compositingPeriod = 16
 compositingFrequency = 8
 compositingPeriods = 3
@@ -77,13 +77,13 @@ exportDriveFolder = 'RTFD-Baseline-Exports'
 
 gs_bucket = 'rtfd-exports'
 # exportLocalFolder = 'Q:/Scripts/'+ gs_bucket
-exportLocalFolder = '//166.2.126.188/rtfd/rtfd-gee-composite-outputs/'+ gs_bucket
+exportLocalFolder = 'T:/baseline/TDD_baseline_data/'+ gs_bucket
 
 
 # syncCommand = 'Q:/Scripts/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
 #syncCommand = 'W:/Installation_Programs/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
-#syncCommand = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
-syncCommand = 'C:/Users/rchastain/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
+syncCommand = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
+#syncCommand = 'C:/Users/rchastain/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
 
 #MODIS Params- params if sensorProgram is modis
 #Whether to use daily MODIS (true) or 8 day composites (false)
@@ -323,14 +323,14 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
                 # t = ee.batch.Export.image.toDrive(imageT, outputName, exportDriveFolder, None, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, transform, 1e13)
                 
                 id_list.append(outputName)
-                t.start()
+                # t.start()
                 # print(t)
         # Map.view()
         return id_list
         # trackTasks(id_list)
 def limitProcesses(processLimit):
         while len(multiprocessing.process.active_children()) > processLimit:
-                print (len(multiprocessing.process.active_children())),':active processes'
+                print (len(multiprocessing.process.active_children()),':active processes')
                 time.sleep(5)
 def trackTasks(credential_name,id_list,task_count = 1):
         while task_count > 0:
