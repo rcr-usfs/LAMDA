@@ -77,8 +77,13 @@ exportDriveFolder = 'RTFD-Baseline-Exports'
 
 gs_bucket = 'rtfd-exports'
 # exportLocalFolder = 'Q:/Scripts/'+ gs_bucket
-exportLocalFolder = 'T:/baseline/TDD_baseline_data/'+ gs_bucket
+exportLocalFolder = 'T:/baseline/TDD_baseline_data/'
+exportLocalFolder2 = 'C:/TDD_baseline_data/'
+if os.path.exists(exportLocalFolder) == False: 
+    check_dir(exportLocalFolder2)
+    exportLocalFolder = exportLocalFolder2
 
+exportLocalFolder += gs_bucket
 
 # syncCommand = 'Q:/Scripts/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
 #syncCommand = 'W:/Installation_Programs/google-cloud-sdk/bin/gsutil.cmd -m cp -n -r gs://'+gs_bucket+' '+os.path.dirname(exportLocalFolder)
@@ -320,8 +325,7 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
                 
                
                 t = ee.batch.Export.image.toCloudStorage(imageT, outputName, gs_bucket, outputName, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, str(transform), 1e13)
-                # t = ee.batch.Export.image.toCloudStorage(image,name, gs_bucket, name, None, boundary.bounds(100,crs).transform('EPSG:4326', 100).getInfo()['coordinates'][0], None, crs, str(transform), 1e13,256,256*75)
-  
+              
 
                 # t = ee.batch.Export.image.toDrive(imageT, outputName, exportDriveFolder, None, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, transform, 1e13)
                 
@@ -375,7 +379,7 @@ def batchExport():
 
         while len(multiprocessing.process.active_children()) > 0:
                 print (len(multiprocessing.process.active_children())),':active export processes'
-                # syncer()
+                syncer()
                 time.sleep(1)
 def syncer():
         print(syncCommand)
@@ -393,6 +397,7 @@ def batchFixExports(tifSet):
                 set_projection(tif,gdal_crs)
                 set_no_data(tif, no_data_value = noDataValue, update_stats = True)
 def fixExports():
+        check_dir(exportLocalFolder)
         fix_report = check_end(exportLocalFolder) + 'fixed_rasters.csv'
         if os.path.exists(fix_report):
                 oo = open(fix_report,'r')
@@ -431,11 +436,11 @@ def fixExports():
         
 if __name__ == '__main__':  
 
-        batchExport()
+        # batchExport()
         
         #fixExports()
         # limitProcesses(0)
-        # syncer()
+        syncer()
         
  #      limitProcesses(0)
 
