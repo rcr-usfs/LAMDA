@@ -7,7 +7,7 @@ import multiprocessing
 #Directories
 
 #Location of GEE TDD Composites
-gee_composite_dir = '//166.2.126.188/rtfd/rtfd-gee-composite-outputs/tdd_composites/'
+gee_composite_dir = 'T:/baseline/TDD_baseline_data/rtfd-exports/'
 
 # #Location of GTAC Composites
 # local_composite_dir = 'J:/'
@@ -16,23 +16,23 @@ gee_composite_dir = '//166.2.126.188/rtfd/rtfd-gee-composite-outputs/tdd_composi
 # final_output_dir = 'J:/'
 
 #Location of GTAC Composites
-local_composite_dir = '//166.2.126.227/'
+local_composite_dir = 'T:/storage/'
 
 #Location of final outputs
-final_output_dir = '//166.2.126.227/'
+final_output_dir = 'T:/storage/'
 
 
 #Location of final outputs on T drive
 final_outputs_dir_T = 'T:/FS/NFS/WOEngineering/GMO-GTAC/Project/RATI/FHAAST/FDM/'
 
 #Location of TDD outputs
-processing_base = '//166.2.126.188/rtfd/TDD_Processing/'
+processing_base = 'T:/storage/TDD_processing/'
 
 #Location of masks for Hansen change and Ellenwood forest 
-hansen_msk_dir = '//166.2.126.25/rseat/Programs/FHTET_RTFD/hanson_disturbance_layer_2009_2018/mz_msks/'
+hansen_msk_dir = 'T:/storage/Hansen/mz_msks/'
 
 #Location of gdal fwTools binaries
-gdal_dir = 'W:/RTFD_TDD/TDD_Scripts/FWTools2.4.7/bin/'
+gdal_dir = 'C:/Python38/Lib/site-packages/osgeo/'
 ###################################################################################################
 #Number of days (inclusive) each period includes
 #Compositing every 16 days would have a julianSpan of 15
@@ -320,7 +320,7 @@ def combine_fits(layer_no,layer_name,output_folder,out_fit_template,out_fits):
 def mzIndexAndFit(mz,year,startJulian,endJulian,nYears):
 
     #Set up folders and different elements for the given mz and compositing period
-    forest_mask = [i for i in forest_masks if base(i).find('MZ'+ format(mz,'02')) > -1][0]
+    #forest_mask = [i for i in forest_masks if base(i).find('MZ'+ format(mz,'02')) > -1][0]
    
     startJulianStr = format(startJulian, '03')
     endJulianStr = format(endJulian,'03')
@@ -357,7 +357,7 @@ def mzIndexAndFit(mz,year,startJulian,endJulian,nYears):
 
         #If that directory exists, find what refls are available for the mz and compositing period
         if os.path.exists(local_composite_dir_jd) and yr == years[-1]:
-            refls  = glob_end(local_composite_dir_jd,'zone'+format(mz,'02')+ '_'+jd_str_pair+'_composite_surface_reflectance_240.img')
+            refls  = glob_end(local_composite_dir_jd,'zone'+format(mz,'02')+ '_'+jd_str_pair+'_nrt_composite_surface_reflectance_240.img')
            
         #Otherwise, look for GEE-based refls
         elif not os.path.exists(local_composite_dir_jd) or len(refls) == 0 :
@@ -926,7 +926,7 @@ def runItAll(year,startJulians):
         outputs_exist = isFinished(year,startJulian,endJulian)
         if not outputs_exist:
             print('Computing TDD for:',year,startJulian,endJulian)
-    #         batchCompute(mzs,year,startJulian,endJulian,nYears)
+            batchCompute(mzs,year,startJulian,endJulian,nYears)
     #         merge_mzs(year,startJulian,endJulian,nYears,persistence_merge_list)
     #         compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list)
     #         transfer_files(year,startJulian,endJulian)

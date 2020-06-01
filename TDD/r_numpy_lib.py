@@ -2143,18 +2143,18 @@ def new_big_image_matrix_linregress(in_image,out_image, years = '', in_no_data =
                 # b[b== in_no_data] = numpy.nan
                 # b = numpy.ma.masked_where(b == in_no_data,b)
                 lo.write('Success\tRead chunk\t' + str(i)+'\t'+now()+'\n')
-            except:
-                lo.write('Fail\tRead chunk\t' + str(i)+'\t'+now()+'\n')
+            except Exception as e:
+                lo.write('Fail ('+str(e)+')\tRead chunk\t' + str(i)+'\t'+now()+'\n')
             try:
                 out = matrix_linregress(b,years, vertical_view = False, return_residuals = True, compute_r2 = True,x_term = 'x',in_no_data = in_no_data,out_no_data = out_no_data)
                 lo.write('Success\tApplied matrix_linregress to chunk\t' + str(i)+'\t'+now()+'\n')
-            except:
-                lo.write('Fail\tApply matrix_linregress to chunk\t' + str(i)+'\t'+now()+'\n')
+            except Exception as e:
+                lo.write('Fail ('+str(e)+')\tApply matrix_linregress to chunk\t' + str(i)+'\t'+now()+'\n')
             try:
                 ti.add_tile(out,xo,yo)
                 lo.write('Success\tWrite fit chunk\t' + str(i)+'\t'+now()+'\n')
-            except:
-                lo.write('Fail\tWrite fit chunk\t' + str(i)+'\t'+now()+'\n')
+            except Exception as e:
+                lo.write('Fail ('+str(e)+')\tWrite fit chunk\t' + str(i)+'\t'+now()+'\n')
             tt2 = time.time()
             lo.write('Processing time (sec) chunk\t'+str(i)+'\t'+str(tt2-tt1)+'\n\n')
             lo.close()
@@ -2163,14 +2163,15 @@ def new_big_image_matrix_linregress(in_image,out_image, years = '', in_no_data =
         try:
             ti.rm()
             lo.write('Success\tClose output\t' + out_image+'\t'+now()+'\n')
-        except:
-            lo.write('Fail\tClose output\t' + out_image+'\t'+now()+'\n')
+        except Exception as e:
+            print(e)
+            lo.write('Fail ('+str(e)+')\tClose output\t' + out_image+'\t'+now()+'\n')
         try:
             print(('Computing stats for:',out_image))
             brick_info(out_image,True)
             lo.write('Success\tCompute Stats\t' + out_image+'\t'+now()+'\n')
-        except:
-            lo.write('Fail\tCompute Stats\t' + out_image+'\t'+now()+'\n')
+        except Exception as e:
+            lo.write('Fail ('+str(e)+')\tCompute Stats\t' + out_image+'\t'+now()+'\n')
         tb2 = time.time()
         lo.write('Processing time (sec):\t'+str(tb2 - tb1)+'\n')
         lo.write('\n\n')
