@@ -53,10 +53,10 @@ studyArea = mzsF
 #compositingPeriod is the number of days to include in each composite
 #compositingFrequency is how often composites will be created
 #compositingPeriods is the number of periods (composites) that will be created
-startJulian = 49
+startJulian = 73
 compositingPeriod = 16
 compositingFrequency = 8
-compositingPeriods = 3
+compositingPeriods = 12
 
 
 #Specify start and end years for all analyses
@@ -436,11 +436,11 @@ def fixExports():
         
 if __name__ == '__main__':  
 
-        # batchExport()
+        batchExport()
         
         #fixExports()
         # limitProcesses(0)
-        syncer()
+        # syncer()
         
  #      limitProcesses(0)
 
