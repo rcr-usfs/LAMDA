@@ -74,7 +74,7 @@ ndmiZones = [1,2,3,4,5,6,7]
 ndviZones = [8,9,10,11,12,13,14]
 
 #All zones to process
-mzs = list(range(1,15))
+mzs = range(1,15)
 
 #Different band possibilities for different masking scenarios
 band_possibilities = [[1,2,3,4,5],\
@@ -153,63 +153,63 @@ def classify_persistence(slp1,slp2,slp3,std1,std2,no_data,out_no_data):
 
     out[(slp1 == no_data) | (slp2 == no_data) | (slp3 == no_data)] = out_no_data
     
-    print('Classifying class',2)
+    print 'Classifying class',2
     #if (west_tdd209 le %std2091% & west_tdd217 le %std2171% & west_tdd225 gt %std2251%) w_tdd09225_2 = 2
     out[(out != out_no_data)  & (slp1 <= std1[0]) & (slp2 <= std1[1]) & (slp3 > std1[2])] = 2
 
-    print('Classifying class',3)
+    print 'Classifying class',3
     #if (west_tdd209 le %std2091% & west_tdd217 gt %std2171% & west_tdd225 le %std2251%) w_tdd09225_3 = 3
     out[(out != out_no_data)  & (slp1 <= std1[0]) & (slp2 > std1[1]) & (slp3 <= std1[2])] = 3
 
-    print('Classifying class',4)
+    print 'Classifying class',4
     #if (west_tdd209 gt %std2091% & west_tdd217 le %std2171% & west_tdd225 le %std2251%) w_tdd09225_4 = 4
     out[(out != out_no_data)  & (slp1 > std1[0]) & (slp2 <= std1[1]) & (slp3 <= std1[2])] = 4
 
-    print('Classifying class',5)
+    print 'Classifying class',5
     #if (west_tdd209 le %std2091% & west_tdd217 le %std2171% & west_tdd225 le %std2251%) w_tdd09225_5 = 5
     out[(out != out_no_data)  & (slp1 <= std1[0]) & (slp2 <= std1[1]) & (slp3 <= std1[2])] = 5
 
-    print('Classifying class',6)
+    print 'Classifying class',6
     #if (west_tdd209 le %std2091% & west_tdd217 le %std2171% & west_tdd225 le %std2252%) w_tdd09225_6 = 6
     out[(out != out_no_data)  & (slp1 <= std1[0]) & (slp2 <= std1[1]) & (slp3 <= std2[2])] = 6
 
-    print('Classifying class',7)
+    print 'Classifying class',7
     #if (west_tdd209 le %std2091% & west_tdd217 le %std2172% & west_tdd225 le %std2251%) w_tdd09225_7 = 7
     out[(out != out_no_data)  & (slp1 <= std1[0]) & (slp2 <= std2[1]) & (slp3 <= std1[2])] = 7
 
-    print('Classifying class',8)
+    print 'Classifying class',8
     #if (west_tdd209 le %std2092% & west_tdd217 le %std2171% & west_tdd225 le %std2251%) w_tdd09225_8 = 8
     out[(out != out_no_data)  & (slp1 <= std2[0]) & (slp2 <= std1[1]) & (slp3 <= std1[2])] = 8
 
-    print('Classifying class',9)
+    print 'Classifying class',9
     #if (west_tdd209 le %std2092% & west_tdd217 le %std2172% & west_tdd225 gt %std2251%) w_tdd09225_9 = 9
     out[(out != out_no_data)  & (slp1 <= std2[0]) & (slp2 <= std2[1]) & (slp3 > std1[2])] = 9
 
-    print('Classifying class',10)
+    print 'Classifying class',10
     #if (west_tdd209 le %std2092% & west_tdd217 gt %std2171% & west_tdd225 le %std2252%) w_tdd09225_10 = 10
     out[(out != out_no_data)  & (slp1 <= std2[0]) & (slp2 > std1[1]) & (slp3 <= std2[2])] = 10
 
-    print('Classifying class',11)
+    print 'Classifying class',11
     #if (west_tdd209 gt %std2091% & west_tdd217 le %std2172% & west_tdd225 le %std2252%) w_tdd09225_11 = 11
     out[(out != out_no_data)  & (slp1 > std1[0]) & (slp2 <= std2[1]) & (slp3 <= std2[2])] = 11
 
-    print('Classifying class',12)
+    print 'Classifying class',12
     #if (west_tdd209 le %std2092% & west_tdd217 le %std2172% & west_tdd225 le %std2251%) w_tdd09225_12 = 12
     out[(out != out_no_data)  & (slp1 <= std2[0]) & (slp2 <= std2[1]) & (slp3 <= std1[2])] = 12
 
-    print('Classifying class',13)
+    print 'Classifying class',13
     #if (west_tdd209 le %std2092% & west_tdd217 le %std2171% & west_tdd225 le %std2252%) w_tdd09225_13 = 13
     out[(out != out_no_data)  & (slp1 <= std2[0]) & (slp2 <= std1[1]) & (slp3 <= std2[2])] = 13
 
-    print('Classifying class',14)
+    print 'Classifying class',14
     #if (west_tdd209 le %std2091% & west_tdd217 le %std2172% & west_tdd225 le %std2252%) w_tdd09225_14 = 14
     out[(out != out_no_data)  & (slp1 <= std1[0]) & (slp2 <= std2[1]) & (slp3 <= std2[2])] = 14
 
-    print('Classifying class',15)
+    print 'Classifying class',15
     #if (west_tdd209 le %std2092% & west_tdd217 le %std2172% & west_tdd225 le %std2252%) w_tdd09225_15 = 15
     out[(out != out_no_data)  & (slp1 <= std2[0]) & (slp2 <= std2[1])& (slp3 <= std2[2])] = 15
 
-    print('Classifying class',1)
+    print 'Classifying class',1
     #if (west_tdd209 gt %std2091% & west_tdd217 gt %std2171% & west_tdd225 gt %std2251%) w_tdd09225_1 = 1
     out[(out != out_no_data)  & (slp1 > std1[0]) & (slp2 > std1[1])& (slp3 > std1[2])] = 1
 
@@ -226,7 +226,7 @@ def classify_persistence(slp1,slp2,slp3,std1,std2,no_data,out_no_data):
     ##7  11  :  2
     ##12  15  :  3
 def persistence_3class(in_array,out_no_data):
-    print('Binning persistence into 3 classes')
+    print 'Binning persistence into 3 classes'
     out_3cl = numpy.zeros_like(in_array,'u1')
 
     out_3cl[(in_array >= 2) & (in_array <= 6)] = 1
@@ -254,7 +254,7 @@ def persistence_3class(in_array,out_no_data):
     ##14  :  3
     ##15  :  3
 def persistence_3class_last2(in_array,out_no_data):
-    print('Binning persistence into 3 classes last 2')
+    print 'Binning persistence into 3 classes last 2'
     out_last2 = numpy.zeros_like(in_array,'u1')
     out_last2[(in_array == 2) |(in_array == 5) | (in_array == 6)] = 1
     out_last2[(in_array == 7) |(in_array == 8) | (in_array == 11)] = 2
@@ -266,9 +266,9 @@ def persistence_3class_last2(in_array,out_no_data):
 #Function to get a normalized difference from a given 3-d array
 #Assumes the first dimension has length 2
 def get_nd(b):
-    print(b.shape)
+    print b.shape
     b = numpy.array(b,dtype = 'Float32')
-    print('Computing normalized difference')
+    print 'Computing normalized difference'
     denom = (b[0] + b[1])
     denom[denom == 0] = 1
     nd = ((b[0] - b[1]) / denom)
@@ -294,7 +294,7 @@ def combine_fits(layer_no,layer_name,output_folder,out_fit_template,out_fits):
     fit_array_exists = False
     out_fitT = output_folder +out_fit_template + '_'+layer_name+'.tif'
     if os.path.exists(out_fitT) == False:
-        print(('Combining rasters to create:',out_fitT))
+        print('Combining rasters to create:',out_fitT)
 
         #Iterate across each fit and include its value if its not nodata and the pixel has not been included yet
         for fit in out_fits:
@@ -314,7 +314,7 @@ def combine_fits(layer_no,layer_name,output_folder,out_fit_template,out_fits):
         raster_info(out_fitT,True)
         fit_array = None
     else:
-        print(('Already combined:',base(out_fitT)))
+        print('Already combined:',base(out_fitT))
 ########################################################################################################
 #Wrapper for computing the normalized index and linear fit
 def mzIndexAndFit(mz,year,startJulian,endJulian,nYears):
@@ -339,7 +339,7 @@ def mzIndexAndFit(mz,year,startJulian,endJulian,nYears):
     check_dir(input_folder)
     check_dir(output_temp_folder)
     check_dir(output_folder_240)
-    years = list(range(year-nYears+1,year+1))
+    years = range(year-nYears+1,year+1)
     year_range_str = str(years[0]) + '_' + str(years[-1])
 
     #Find whether it's NDMI or NDVI
@@ -463,7 +463,7 @@ def mzIndexAndFit(mz,year,startJulian,endJulian,nYears):
 
             set_no_data(out_nd,-32768,True)
         else:
-            print(('Already computed',base(out_nd)))
+            print('Already computed',base(out_nd))
        
 
         ########################################################
@@ -614,7 +614,7 @@ def merge_mzs(year,startJulian,endJulian,nYears,persistence_merge_list,tracking_
     startJulianStr = format(startJulian, '03')
     endJulianStr = format(endJulian,'03')
     jd_str_pair = startJulianStr + '_'+endJulianStr
-    years = list(range(year-nYears+1,year+1))
+    years = range(year-nYears+1,year+1)
     year_range_str = str(years[0]) + '_' + str(years[-1])
     folder_base = check_end(processing_base) + str(year) +'/'+ startJulianStr + '/'
     input_folder = folder_base + 'linear_fit_inputs_'+startJulianStr+'/'
@@ -650,7 +650,7 @@ def merge_mzs(year,startJulian,endJulian,nYears,persistence_merge_list,tracking_
         time.sleep(0.2)
 
     while len(multiprocessing.process.active_children()) > 0:
-        print(len(multiprocessing.process.active_children()),':active merge subprocesses')
+        print len(multiprocessing.process.active_children()),':active merge subprocesses'
         time.sleep(5)
 
 ########################################################################################################
@@ -682,7 +682,7 @@ def slope_merge_set_persistence(slope_merge_set):
         #Compute persistence for each chunk
         i2 = 1
         for xo,yo,w,h in p_ti.chunk_list:
-            print('Processing chunk',i2,'/',len(p_ti.chunk_list))
+            print 'Processing chunk',i2,'/',len(p_ti.chunk_list)
             slp1 = raster(slope_merge_set[0],'i2',1,xo,yo,w,h)
             slp2 = raster(slope_merge_set[1],'i2',1,xo,yo,w,h)
             slp3 = raster(slope_merge_set[2],'i2',1,xo,yo,w,h)
@@ -756,7 +756,7 @@ def compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list
                 slope_merges.append(merges)
             else:
                 print ('Insufficient merges')
-                print((len(merges) , len(persistence_merge_list)))
+                print(len(merges) , len(persistence_merge_list))
                 can_compute_persistence = False
                 break
             
@@ -764,7 +764,7 @@ def compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list
     #If all 3 periods exist, comput persistence
     if can_compute_persistence:
         slope_merges = transpose(slope_merges)
-        print(('Can compute persistence for',startJulian))
+        print('Can compute persistence for',startJulian)
 
         persistence_out_list = []
         persistence_out_3c_list = []
@@ -785,7 +785,7 @@ def compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list
             p.start()
             time.sleep(0.2)
         while len(multiprocessing.process.active_children()) > 0:
-            print(len(multiprocessing.process.active_children()),':active persistence processes')
+            print len(multiprocessing.process.active_children()),':active persistence processes'
             time.sleep(5)
 
         #Merge persistence outputs for CONUS output
@@ -807,7 +807,7 @@ def compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list
             p3.start()
             time.sleep(0.2)
         while len(multiprocessing.process.active_children()) > 0:
-            print(len(multiprocessing.process.active_children()),':active persistence merge processes')
+            print len(multiprocessing.process.active_children()),':active persistence merge processes'
             time.sleep(5)
 
        
@@ -866,7 +866,7 @@ def transfer_files(year,startJulian,endJulian, bd_end = 'merged_fit_slope_240m_m
     startJulianStr = format(startJulian, '03')
     endJulianStr = format(endJulian,'03')
     jd_str_pair = startJulianStr + '_'+endJulianStr
-    years = list(range(year-nYears+1,year+1))
+    years = range(year-nYears+1,year+1)
     year_range_str = str(years[0]) + '_' + str(years[-1])
 
     calendar = julian_to_calendar(endJulian, year)
@@ -884,7 +884,7 @@ def transfer_files(year,startJulian,endJulian, bd_end = 'merged_fit_slope_240m_m
             bd_output = bd_output[0]
             bd_final_name = final_output_folder + str(year) + calendarStr + '_16_5yr_bd.tif'
             if os.path.exists(bd_final_name) == False:
-                print(('Copying:',bd_final_name))
+                print('Copying:',bd_final_name)
                 shutil.copy(bd_output,bd_final_name )
 
                 oo = open(os.path.splitext(bd_final_name)[0]+ '.tfw','w')
@@ -895,7 +895,7 @@ def transfer_files(year,startJulian,endJulian, bd_end = 'merged_fit_slope_240m_m
             persistence_output = persistence_output[0]
             persistence_final_name = final_output_folder + str(year) + calendarStr + '_32_5yr.tif'
             if os.path.exists(persistence_final_name) == False:
-                print(('Copying:',persistence_final_name))
+                print('Copying:',persistence_final_name)
                 shutil.copy(persistence_output,persistence_final_name )
             
                 oo = open(os.path.splitext(persistence_final_name)[0]+ '.tfw','w')
@@ -914,18 +914,19 @@ def batchCompute(mzs,year,startJulian,endJulian,nYears):
         p.start()
         time.sleep(0.2)
     while len(multiprocessing.process.active_children()) > 0:
-        print(len(multiprocessing.process.active_children()),':active index linear fit processes')
+        print len(multiprocessing.process.active_children()),':active index linear fit processes'
 
         time.sleep(5)
 def isFinished(year,startJulian,endJulian):
     return transfer_files(year,startJulian,endJulian)
 ########################################################################################################
 def runItAll(year,startJulians):
-    for startJulian in startJulians:
-        endJulian = startJulian + julianSpan
-        outputs_exist = isFinished(year,startJulian,endJulian)
-        if not outputs_exist:
-            print('Computing TDD for:',year,startJulian,endJulian)
+    print('here')
+    # for startJulian in startJulians:
+    #     endJulian = startJulian + julianSpan
+    #     outputs_exist = isFinished(year,startJulian,endJulian)
+    #     if not outputs_exist:
+    #         print('Computing TDD for:',year,startJulian,endJulian)
     #         batchCompute(mzs,year,startJulian,endJulian,nYears)
     #         merge_mzs(year,startJulian,endJulian,nYears,persistence_merge_list)
     #         compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list)

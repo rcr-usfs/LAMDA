@@ -4,7 +4,7 @@ from RTFD_TDD_2019_Rework_Lib import *
 #User parameters
 
 #Year to process
-year = 2019
+year = 2020
 
 #Start julians
 startJulians = [297,305,313]

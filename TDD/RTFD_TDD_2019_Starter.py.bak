@@ -16,7 +16,7 @@ y = int(y)
 if y < 40:y = 2000+y
 start_date = 57
 now_julian = calendar_to_julian(d,m,y)
-past_julians = list(range(start_date,now_julian-14,8))
+past_julians = range(start_date,now_julian-14,8)
 ###################################################################################################
 ###################################################################################################
 #End user parameters
