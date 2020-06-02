@@ -2054,14 +2054,15 @@ def matrix_linregress(y,x = '', vertical_view = False, return_residuals = True, 
     if in_no_data != None and in_no_data != '':
         msk = numpy.max(y == in_no_data,0)
        
-
+   
     if x == '' or x == None:
         x = numpy.arange(y.shape[0])
     else:
         x = numpy.array(x)
     n = len(x)
-    exec('x =numpy.c_['+x_term+', numpy.ones_like(x)]')
-
+    # exec('x = numpy.c_[x, numpy.ones_like(x)]')
+    x =numpy.c_[x, numpy.ones_like(x)]
+    
     if vertical_view == False:
         y = numpy.vstack(y.T.swapaxes(1,0)).T
     else:
@@ -2071,9 +2072,11 @@ def matrix_linregress(y,x = '', vertical_view = False, return_residuals = True, 
 
 
     print ('Computing linear algebra least squares')
-    model,residual = numpy.array(numpy.linalg.lstsq(x, y))[:2]
+    
+    
+    model,residual = numpy.array(numpy.linalg.lstsq(x, y,rcond=None))[:2]
 
-
+    # print(model)
 
     out = []
     for m in model:
@@ -2088,8 +2091,8 @@ def matrix_linregress(y,x = '', vertical_view = False, return_residuals = True, 
         r2[r2 > 1] = 1
         r2[r2 < 0] = 0
         r2 = r2*100
-        if r2 != []:
-            out.append(r2)
+        # if r2 != []:
+        out.append(r2)
         r2 = None
     if return_residuals and residual != []:
         out.append(numpy.sqrt(residual/y.shape[0]))
@@ -2108,14 +2111,14 @@ def matrix_linregress(y,x = '', vertical_view = False, return_residuals = True, 
     return out
 
 
-#y = numpy.random.random(100).reshape((25,2,2))
-#y = numpy.arange(100).reshape((25,2,2))
-##print y
+# y = numpy.random.random(100).reshape((25,2,2))
+# y = numpy.arange(100).reshape((25,2,2))
+# print(y.shape)
 ###s,r = quick_slope_r('',y)
 ###print s,r**2
 ###y = numpy.random.randint((100).reshape((25,2,2))
 ##
-#print  matrix_linregress(y, x_term = 'x', compute_r2 = True,return_residuals = False)#,in_no_data = y[0][0][0], out_no_data = 501)
+# print(matrix_linregress(y, x_term = 'x', compute_r2 = True,return_residuals = False))#,in_no_data = y[0][0][0], out_no_data = 501)
 def new_big_image_matrix_linregress(in_image,out_image, years = '', in_no_data = 255,out_no_data = -600, mem_size_limit = 20000, layer_names = ['slope', 'b', 'r2','RMSE'], band_list = [],dt = 'Float32',compression = True):
     ri = raster_info(in_image)
     log_file = os.path.splitext(out_image)[0] + '_matrix_linregress_log.txt'
@@ -7713,3 +7716,4 @@ array = None
 # Input = Dir + 'mz4ndmi_249100_12_16.img'
 # Output = Dir + 'test1.img'
 # new_big_image_matrix_linregress(Input,Output)
+# new_big_image_matrix_linregress('Q:/TDD_Processing/2019/201/linear_fit_inputs_201/MZ01_2015_2019_201_216_NDMI.tif','Q:/TDD_Processing/2019/201/linear_fit_inputs_201/MZ01_2015_2019_201_216_NDMI_lin.tif')
