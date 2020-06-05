@@ -192,6 +192,12 @@ gdal_crs = 'PROJCS["NAD_1983_Albers",GEOGCS["NAD83",DATUM["North_American_Datum_
 transform = [240,0,-2370945.0,0,-240,3189315.0];#Specify transform if scale is null and snapping to known grid is needed
 scale = None#Specify scale if transform is null
 #########################################################################
+#If trying to export only outputs that are missing use this mode
+#Generally only_export_missing_exports will be False. Only set to true if specific outputs are wanted
+#This is specified with missing_exports
+only_export_missing_exports = True
+missing_exports = ['PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ14_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ13_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ12_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ11_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ10_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ09_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ08_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ07_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ06_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ05_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ04_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ03_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ02_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ01_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ14_2017_2017_193_208', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ13_2017_2017_193_208', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ12_2017_2017_193_208']
+#########################################################################
 #########################################################################End user parameters
 #########################################################################
 #########################################################################
@@ -323,14 +329,11 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
                 imageT = imageT.select(exportBands).multiply(multExportBands).int16()
                 imageT = setNoData(imageT,noDataValue)
                 
-               
-                t = ee.batch.Export.image.toCloudStorage(imageT, outputName, gs_bucket, outputName, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, str(transform), 1e13)
-              
-
-                # t = ee.batch.Export.image.toDrive(imageT, outputName, exportDriveFolder, None, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, transform, 1e13)
-                
-                id_list.append(outputName)
-                t.start()
+                if not only_export_missing_exports or outputName in missing_exports:
+                    print('Exporting:',outputName)
+                    t = ee.batch.Export.image.toCloudStorage(imageT, outputName, gs_bucket, outputName, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, str(transform), 1e13)
+                    id_list.append(outputName)
+                    t.start()
                 # print(t)
         # Map.view()
         return id_list
@@ -379,7 +382,7 @@ def batchExport():
 
         while len(multiprocessing.process.active_children()) > 0:
                 print (len(multiprocessing.process.active_children())),':active export processes'
-                syncer()
+                # syncer()
                 time.sleep(1)
 def syncer():
         print(syncCommand)
