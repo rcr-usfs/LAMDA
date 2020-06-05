@@ -53,7 +53,7 @@ studyArea = mzsF
 #compositingPeriod is the number of days to include in each composite
 #compositingFrequency is how often composites will be created
 #compositingPeriods is the number of periods (composites) that will be created
-startJulian = 169
+startJulian = 193
 compositingPeriod = 16
 compositingFrequency = 8
 compositingPeriods = 3

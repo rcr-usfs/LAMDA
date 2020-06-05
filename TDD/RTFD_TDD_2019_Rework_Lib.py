@@ -320,7 +320,7 @@ def combine_fits(layer_no,layer_name,output_folder,out_fit_template,out_fits):
 def mzIndexAndFit(mz,year,startJulian,endJulian,nYears):
 
     #Set up folders and different elements for the given mz and compositing period
-    #forest_mask = [i for i in forest_masks if base(i).find('MZ'+ format(mz,'02')) > -1][0]
+    forest_mask = [i for i in forest_masks if base(i).find('MZ'+ format(mz,'02')) > -1][0]
    
     startJulianStr = format(startJulian, '03')
     endJulianStr = format(endJulian,'03')
@@ -529,7 +529,7 @@ def mzIndexAndFit(mz,year,startJulian,endJulian,nYears):
             out[tracker == 2] = 2
             tracker = None
             #Bring in the Hansen and Ellenwood codes (1 and 0 respectively)
-            out[fm == 1] = 4
+            out[fm == 1] = 0 #Changed from 4 to 0 so Hansen mask is not applied (June 2, 2020)
             out[fm == 0] = 5
             out[fm == 255] = 255
             fm = None
@@ -927,8 +927,8 @@ def runItAll(year,startJulians):
         if not outputs_exist:
             print('Computing TDD for:',year,startJulian,endJulian)
             batchCompute(mzs,year,startJulian,endJulian,nYears)
-    #         merge_mzs(year,startJulian,endJulian,nYears,persistence_merge_list)
-    #         compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list)
+            merge_mzs(year,startJulian,endJulian,nYears,persistence_merge_list)
+            compute_persistence(year,startJulian,endJulian,nYears,persistence_merge_list)
     #         transfer_files(year,startJulian,endJulian)
 ########################################################################################################
 #End functions
