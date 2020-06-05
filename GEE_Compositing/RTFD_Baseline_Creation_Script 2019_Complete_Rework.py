@@ -382,7 +382,7 @@ def batchExport():
 
         while len(multiprocessing.process.active_children()) > 0:
                 print (len(multiprocessing.process.active_children())),':active export processes'
-                # syncer()
+                syncer()
                 time.sleep(1)
 def syncer():
         print(syncCommand)
