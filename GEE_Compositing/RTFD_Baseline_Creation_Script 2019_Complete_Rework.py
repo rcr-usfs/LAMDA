@@ -53,18 +53,18 @@ studyArea = mzsF
 #compositingPeriod is the number of days to include in each composite
 #compositingFrequency is how often composites will be created
 #compositingPeriods is the number of periods (composites) that will be created
-startJulian = 193
+startJulian = 49
 compositingPeriod = 16
 compositingFrequency = 8
-compositingPeriods = 3
+compositingPeriods = 1
 
 
 #Specify start and end years for all analyses
 #More than a 3 year span should be provided for time series methods to work 
 #well. 
 #Years to include data for TDOM
-startYear = 2016
-endYear = 2019
+startYear = 2017
+endYear = 2020
 
 
 timeBuffer = 0
@@ -75,13 +75,12 @@ exportName = 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_'
 #Provide Drive folderlocation composites will be exported to
 exportDriveFolder = 'RTFD-Baseline-Exports'
 
-gs_bucket = 'rtfd-exports'
+gs_bucket = 'rtfd-exports-usda'
 # exportLocalFolder = 'Q:/Scripts/'+ gs_bucket
-exportLocalFolder = 'T:/baseline/TDD_baseline_data/'
-exportLocalFolder2 = 'C:/TDD_baseline_data/'
-if os.path.exists(exportLocalFolder) == False: 
-    check_dir(exportLocalFolder2)
-    exportLocalFolder = exportLocalFolder2
+exportLocalFolder = 'T:/baseline/TDD_baseline_data_2021/'
+# if os.path.exists(exportLocalFolder) == False: 
+#     check_dir(exportLocalFolder2)
+#     exportLocalFolder = exportLocalFolder2
 
 exportLocalFolder += gs_bucket
 
@@ -195,7 +194,7 @@ scale = None#Specify scale if transform is null
 #If trying to export only outputs that are missing use this mode
 #Generally only_export_missing_exports will be False. Only set to true if specific outputs are wanted
 #This is specified with missing_exports
-only_export_missing_exports = True
+only_export_missing_exports = False
 missing_exports = ['PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ14_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ13_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ12_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ11_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ10_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ09_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ08_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ07_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ06_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ05_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ04_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ03_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ02_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ01_2019_2019_201_216', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ14_2017_2017_193_208', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ13_2017_2017_193_208', 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_MZ12_2017_2017_193_208']
 #########################################################################
 #########################################################################End user parameters
@@ -241,7 +240,7 @@ for year in ee.List.sequence(startYear+timeBuffer,endYear-timeBuffer).getInfo():
                 startJulianT,endJulianT= [int(js[0]),int(js[1])]
                 yearJulians.append([startYearT,endYearT,startJulianT,endJulianT])
 
-yearJulianSets  = exportManager.new_set_maker(yearJulians,exportManager.nCredentials)
+yearJulianSets  = exportManager.new_set_maker(yearJulians,1)#exportManager.nCredentials)
 
 
 #########################################################################
@@ -365,34 +364,35 @@ def trackTasks(credential_name,id_list,task_count = 1):
 def exportYearJulianSet(i):
         id_list = []
         yearJulianSet = yearJulianSets[i]
-        credentials = exportManager.GetPersistentCredentials(exportManager.credentials[i])
+        # credentials = exportManager.GetPersistentCredentials(exportManager.credentials[i])
         credentialsName = os.path.basename(exportManager.credentials[i])
-        exportManager.ee.Initialize(credentials)
+        # exportManager.ee.Initialize(credentials)
         for startYearT,endYearT,startJulianT,endJulianT in yearJulianSet:
                 ids =exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credentialsName)
-                id_list.extend(ids)
-        trackTasks(credentialsName,id_list)
+                # id_list.extend(ids)
+        # trackTasks(credentialsName,id_list)
 
 def batchExport():
-        for i in range(exportManager.nCredentials):
+   exportYearJulianSet(0)
+        # for i in range(exportManager.nCredentials):
                 
-                p = Process(target = exportYearJulianSet,args = (i,),name = str(i))
-                p.start()
-                time.sleep(0.2)
+        #         p = Process(target = exportYearJulianSet,args = (i,),name = str(i))
+        #         p.start()
+        #         time.sleep(0.2)
 
-        while len(multiprocessing.process.active_children()) > 0:
-                print (len(multiprocessing.process.active_children())),':active export processes'
-                syncer()
-                time.sleep(1)
+    # while len(multiprocessing.process.active_children()) > 0:
+    #     print (len(multiprocessing.process.active_children())),':active export processes'
+    #     syncer()
+    #     time.sleep(1)
 def syncer():
-        print(syncCommand)
-        call = subprocess.Popen(syncCommand)
-        while call.poll() == None:
-                print ('Still syncing:'),now()
-                fixExports()
-                time.sleep(5)
+    print(syncCommand)
+    call = subprocess.Popen(syncCommand)
+    while call.poll() == None:
+            print ('Still syncing:'),now()
+            fixExports()
+            time.sleep(5)
 
-        fixExports()
+    fixExports()
 
 def batchFixExports(tifSet):
         for tif in tifSet:
@@ -439,11 +439,11 @@ def fixExports():
         
 if __name__ == '__main__':  
 
-        batchExport()
+        # batchExport()
         
         #fixExports()
         # limitProcesses(0)
-        # syncer()
+        syncer()
         
  #      limitProcesses(0)
 
