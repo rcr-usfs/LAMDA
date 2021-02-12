@@ -178,6 +178,7 @@ medoidBands = ['red','nir','blue','green','swir2']
 nThreads = 24
 #Parameters to look at data with
 vizParams = {'min':0.1,'max':[0.2,0.95,0.2],'bands':'swir2,nir,red'}
+vizParams10k = {'min':1000,'max':[2000,9500,2000],'bands':'swir2,nir,red'}
 
 noDataValue = -32768
 
@@ -327,10 +328,15 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
                 #Select bands for export, set the null value to a specified value, and export to Drive
                 imageT = imageT.select(exportBands).multiply(multExportBands).int16()
                 imageT = imageT.unmask(noDataValue,False)#setNoData(imageT,noDataValue)
-                # Map.addLayer(imageT,vizParams,'imageForExport',False)
+                # Map.addLayer(mzT.bounds(),{},'bounds')
+                # Map.addLayer(imageT,vizParams10k,'{} {} {} {} {}'.format(mz,startYearT,endYearT,startJulianT,endJulianT),False)
+                # outputName += '_test'
                 if not only_export_missing_exports or outputName in missing_exports:
                     print('Exporting:',outputName)
-                    t = ee.batch.Export.image.toCloudStorage(imageT, outputName, gs_bucket, outputName, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, str(transform), 1e13)
+                    
+
+                    t = ee.batch.Export.image.toCloudStorage(imageT, outputName, gs_bucket, outputName, None, mzT.bounds(), None, crs, transform, 1e13)
+
                     id_list.append(outputName)
                     t.start()
                 # print(t)
@@ -369,22 +375,23 @@ def exportYearJulianSet(i):
         # exportManager.ee.Initialize(credentials)
         for startYearT,endYearT,startJulianT,endJulianT in yearJulianSet:
                 ids =exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credentialsName)
-                # id_list.extend(ids)
-        # trackTasks(credentialsName,id_list)
+                id_list.extend(ids)
+        # trackTasks('Main',id_list)
 
 def batchExport():
-   exportYearJulianSet(0)
+    
         # for i in range(exportManager.nCredentials):
                 
-        #         p = Process(target = exportYearJulianSet,args = (i,),name = str(i))
-        #         p.start()
-        #         time.sleep(0.2)
+    p = Process(target = exportYearJulianSet,args = (0,))
+    p.start()
+    time.sleep(0.2)
 
-    # while len(multiprocessing.process.active_children()) > 0:
-    #     print (len(multiprocessing.process.active_children())),':active export processes'
-    #     syncer()
-    #     time.sleep(1)
+    while len(multiprocessing.process.active_children()) > 0:
+        print (len(multiprocessing.process.active_children())),':active export processes'
+        syncer()
+        time.sleep(1)
 def syncer():
+    check_dir(exportLocalFolder)
     print(syncCommand)
     call = subprocess.Popen(syncCommand)
     while call.poll() == None:
@@ -439,15 +446,15 @@ def fixExports():
         
 if __name__ == '__main__':  
 
-        batchExport()
-        
-        #fixExports()
-        # limitProcesses(0)
-        # syncer()
-        
- #      limitProcesses(0)
+    batchExport()
+    # Map.view()
+    #fixExports()
+    limitProcesses(0)
+    # syncer()
+    
+#      limitProcesses(0)
 
 
-        # limitProcesses(0)
-        
+    # limitProcesses(0)
+    
 # Map.launchGEEVisualization()
