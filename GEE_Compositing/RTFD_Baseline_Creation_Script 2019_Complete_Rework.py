@@ -326,8 +326,8 @@ def exportYearJulianRange(startYearT,endYearT,startJulianT,endJulianT,credential
 
                 #Select bands for export, set the null value to a specified value, and export to Drive
                 imageT = imageT.select(exportBands).multiply(multExportBands).int16()
-                imageT = setNoData(imageT,noDataValue)
-                
+                imageT = imageT.unmask(noDataValue,False)#setNoData(imageT,noDataValue)
+                # Map.addLayer(imageT,vizParams,'imageForExport',False)
                 if not only_export_missing_exports or outputName in missing_exports:
                     print('Exporting:',outputName)
                     t = ee.batch.Export.image.toCloudStorage(imageT, outputName, gs_bucket, outputName, None, mzT.bounds().getInfo()['coordinates'][0], None, crs, str(transform), 1e13)
@@ -439,11 +439,11 @@ def fixExports():
         
 if __name__ == '__main__':  
 
-        # batchExport()
+        batchExport()
         
         #fixExports()
         # limitProcesses(0)
-        syncer()
+        # syncer()
         
  #      limitProcesses(0)
 
