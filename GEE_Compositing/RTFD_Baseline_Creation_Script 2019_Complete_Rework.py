@@ -76,7 +76,7 @@ exportName = 'PY_TDD_Baseline_Medoid_cloudScore_TDOM_3min_240_Cubic_'
 exportDriveFolder = 'RTFD-Baseline-Exports'
 
 gs_bucket = 'rtfd-exports-usda'
-# exportLocalFolder = 'Q:/Scripts/'+ gs_bucket
+# exportLocalFolder = 'Q:/Scripts/'
 exportLocalFolder = 'T:/baseline/TDD_baseline_data_2021/'
 # if os.path.exists(exportLocalFolder) == False: 
 #     check_dir(exportLocalFolder2)
