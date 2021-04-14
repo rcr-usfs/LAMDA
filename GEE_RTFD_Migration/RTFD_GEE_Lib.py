@@ -84,6 +84,9 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 		del args['args']
 	print(args)
 
+	#Filter image dates
+	images = images.filter(ee.Filter.calendarRange(startJulian,endJulian))
+	
 	#Set up images
 	images = images.select(indexNames)
 	bns = images.first().bandNames()
