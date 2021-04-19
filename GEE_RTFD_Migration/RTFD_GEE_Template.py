@@ -122,7 +122,7 @@ exportRawSlope = False
 exportZOutputs = True
 exportTDDOutputs = True
 
-#Export area name
+#Export area name - provide a descriptive name for the study area
 exportAreaName = 'Mich_Defol_Test'
 
 #Area to export
