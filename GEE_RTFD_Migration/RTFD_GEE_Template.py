@@ -41,7 +41,8 @@ indexNames = ['NBR','NDVI']
 #to run the trend change detection (TDD) method across
 tddEpochLength = 5
 
-#Change threshold for TDD (slope)
+#Change threshold for TDD (slope) 
+#Generally around -0.03 to -0.08 works well
 slopeThresh = -0.05
 
 #How to summarize values for annual TDD composites
@@ -53,12 +54,15 @@ tddAnnualReducer = ee.Reducer.percentile([50])
 zBaselineLength = 3
 
 #Specify the number of years between the analyss year and baseline
+#Useful if an area experienced change two years in a row
 baselineGap = 1
 
-#Change threshold for z 
+#Change threshold for z (generally somewhere from -2 to -3 works well)
+#Use higher number to include more loss
 zThresh = -2.5
 
 #How to summarize the daily z values for the analysis period
+#User a lower percentile to include more loss
 zReducer = ee.Reducer.percentile([50])
 
 ###########################################
@@ -110,8 +114,16 @@ scale = None #Specify scale if transform is None
 exportBucket ='rtfd-scratch'
 
 #Whether to export various outputs
+#Whether to export each individual raw z score or TDD trend slope
 exportRawZ = False
 exportRawSlope = False
+
+#Whether to export the final thresholded change count
+exportZOutputs = True
+exportTDDOutputs = True
+
+#Export area name
+exportAreaName = 'Mich_Defol_Test'
 
 #Area to export
 exportArea =ee.Geometry.Polygon(
@@ -124,7 +136,7 @@ exportArea =ee.Geometry.Polygon(
 runGEEViz = True	
 
 ####################################################################################################
-rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, applyLCMSTreeMask,crs,transform, scale,exportBucket,exportArea,exportRawZ,exportRawSlope)
+rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, applyLCMSTreeMask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,exportZOutputs,exportTDDOutputs)
 
 if runGEEViz:
 	Map.view()

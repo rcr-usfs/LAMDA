@@ -20,7 +20,7 @@
 from geeViz.changeDetectionLib import *
 ####################################################################################################
 #Function to get a z score from a given set of imates and dates
-def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3,baselineGap = 1,zReducer = ee.Reducer.percentile([70]),zThresh = -3,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportArea = None,exportRawZ = False):
+def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3,baselineGap = 1,zReducer = ee.Reducer.percentile([70]),zThresh = -3,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False):
 	args = formatArgs(locals())
 	if 'args' in args.keys():
 		del args['args']
@@ -60,7 +60,7 @@ def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3
 
 	#Export z score if chosen
 	if exportRawZ:
-		rawZOutputName = 'RTFD_Z_{}_bl{}-{}_ay{}_jd{}-{}'.format('-'.join(indexNames),baselineStartYear,baselineEndYear,analysisYear,startJulian,endJulian)
+		rawZOutputName = '{}_RTFD_Z_{}_bl{}-{}_ay{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),baselineStartYear,baselineEndYear,analysisYear,startJulian,endJulian)
 		print(rawZOutputName)
 		forExport = analysisZ.multiply(1000).clamp(-32767,32767).int16()
 		# Map.addLayer(forExport.clip(exportArea).unmask(-32768),{'min':-3000,'max':2000,'palette':'F00,888,00F'},rawZOutputName)
@@ -72,7 +72,7 @@ def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3
 
 ####################################################################################################
 #Function to get trend of given images
-def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,annualReducer = ee.Reducer.percentile([50]),slopeThresh = -0.05,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportArea = None,exportRawSlope = False):
+def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,annualReducer = ee.Reducer.percentile([50]),slopeThresh = -0.05,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawSlope = False):
 	
 	#Find years for specified epoch
 	epochStartYear = analysisYear-epochLength+1
@@ -112,7 +112,7 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 
 	#Export slope if chosen
 	if exportRawSlope:
-		rawSlopeOutputName = 'RTFD_TDD_{}_yrs{}-{}_jd{}-{}'.format('-'.join(indexNames),years[0],years[-1],startJulian,endJulian)
+		rawSlopeOutputName = '{}_RTFD_TDD_{}_yrs{}-{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),years[0],years[-1],startJulian,endJulian)
 		print(rawSlopeOutputName)
 		forExport = slope.multiply(100000).clamp(-32767,32767).int16()
 		# Map.addLayer(forExport.clip(exportArea).unmask(-32768),{'min':-5000,'max':2000,'palette':'F00,888,00F'},rawSlopeOutputName)
@@ -128,7 +128,7 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, tddEpochLength = 5, baselineGap = 1, indexNames = ['NBR'],zThresh = -2.5,slopeThresh = -0.05, zReducer = ee.Reducer.percentile([60]),tddAnnualReducer = ee.Reducer.percentile([50]),\
 	zenithThresh = 90,addLookAngleBands = True,applyCloudScore = True, applyTDOM = True, cloudScoreThresh = 20,performCloudScoreOffset = True,cloudScorePctl = 10, zScoreThresh = -1, shadowSumThresh = 0.35, contractPixels = 0,dilatePixels = 2.5,resampleMethod = 'bicubic',preComputedCloudScoreOffset = None,preComputedTDOMIRMean = None,preComputedTDOMIRStdDev = None,\
 	applyLCMSTreeMask = True,
-	crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportArea = None,exportRawZ = False,exportRawSlope = False):
+	crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False,exportRawSlope = False,exportZOutputs = False,exportTDDOutputs = False):
 
 	#Set up union of all years needed
 	startYear = min(analysisYears) - max([tddEpochLength,zBaselineLength]) - baselineGap
@@ -182,14 +182,15 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	z_collection = []
 	tdd_collection = []
 	full_year_list = []
+
 	for analysisYear in analysisYears:
 		for startJulian in startJulians:
 			endJulian = startJulian + nDays-1
 			full_year_list.append(round(analysisYear+(startJulian/365.25),2))
 			print('Running RTFD over: ',analysisYear,startJulian,endJulian)
-			z = getZ(modisImages,indexNames,startJulian,endJulian,analysisYear,zBaselineLength,baselineGap,zReducer,zThresh,crs,transform,scale,exportBucket,exportArea,exportRawZ)
+			z = getZ(modisImages,indexNames,startJulian,endJulian,analysisYear,zBaselineLength,baselineGap,zReducer,zThresh,crs,transform,scale,exportBucket,exportAreaName,exportArea,exportRawZ)
 
-			trend = getTrend(modisImages,indexNames,startJulian,endJulian,analysisYear,tddEpochLength,tddAnnualReducer,slopeThresh,crs,transform,scale,exportBucket,exportArea,exportRawSlope)
+			trend = getTrend(modisImages,indexNames,startJulian,endJulian,analysisYear,tddEpochLength,tddAnnualReducer,slopeThresh,crs,transform,scale,exportBucket,exportAreaName,exportArea,exportRawSlope)
 			
 			z_collection.append(z)
 			tdd_collection.append(trend)
@@ -220,6 +221,28 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 		
 		Map.addLayer(z_collection.select([0]),{'opacity':0},'Raw Z-score Time Series',False)
 		Map.addLayer(tdd_collection.select([0]),{'opacity':0},'Raw Trend Time Series',False)
+
+	#Export outputs if chosen
+	strAnalysisYears = [str(i) for i in analysisYears]
+	strStartJulians = [str(i) for i in startJulians]
+	if exportZOutputs:
+		zOutputName = '{}_RTFD_Z_{}_zThrsh{}_blLen{}_blGap{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(zThresh).replace('.',''),zBaselineLength,baselineGap,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
+		print(zOutputName)
+		countForExport = z_collection.select([1]).count().clamp(0,254).byte()
+		exportToCloudStorageWrapper(countForExport,'{}_count'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
+
+		minZForExport = z_collection.select([0]).min().multiply(1000).clamp(-32767,32767).int16()
+		exportToCloudStorageWrapper(minZForExport,'{}_minZ'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
+	if exportTDDOutputs:
+		tddOutputName = '{}_RTFD_TDD_{}_slpThrsh{}_epLen{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(slopeThresh).replace('.',''),tddEpochLength,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
+		print(tddOutputName)
+		countForExport = tdd_collection.select([1]).count().clamp(0,254).byte()
+		exportToCloudStorageWrapper(countForExport,'{}_count'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
+
+		minSlpForExport = tdd_collection.select([0]).min().multiply(100000).clamp(-32767,32767).int16()
+		exportToCloudStorageWrapper(minSlpForExport,'{}_minSlp'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
+		
+
 
 	#Visualize legacy RTFD outputs
 	i1 = ee.ImageCollection('projects/gtac-rtfd/assets/GEE-Migration/testImages').mosaic()
