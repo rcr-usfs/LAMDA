@@ -19,6 +19,30 @@
 ####################################################################################################
 from geeViz.changeDetectionLib import *
 ####################################################################################################
+def computeCloudScoreTDOMStats(startYear,endYear,startJulian,endJulian,exportArea,exportPath,name,crs,transform,percentiles = [5,10],cloudScoreThresh =5,cloudScorePctl = 5,contractPixels = 0,dilatePixels = 1.5,performCloudScoreOffset = True,tdomBands = ['nir','swir2']):
+	args = formatArgs(locals())
+	if 'args' in args.keys():
+		del args['args']
+	# print(args)
+	modisImages = getModisData(startYear,endYear,startJulian,endJulian,daily = True,maskWQA = False,zenithThresh = 90,useTempInCloudMask = True,addLookAngleBands = False,resampleMethod = 'bicubic')
+
+	cloudScores = modisImages.map(modisCloudScore)
+
+	cloudScorePctls = cloudScores.reduce(ee.Reducer.percentile(percentiles))
+	Map.addLayer(cloudScorePctls.clip(exportArea),{'min':0,'max':30},'Cloud Score pctls')
+	Map.addLayer(modisImages.median().clip(exportArea),vizParamsFalse,'Before Masking')
+	modisImages = applyCloudScoreAlgorithm(modisImages,modisCloudScore,cloudScoreThresh,cloudScorePctl,contractPixels,dilatePixels,performCloudScoreOffset); 
+	Map.addLayer(modisImages.median().clip(exportArea),vizParamsFalse,'After Masking')
+
+	stdDev = modisImages.select(tdomBands).reduce(ee.Reducer.stdDev())
+	mean = modisImages.select(tdomBands).reduce(ee.Reducer.mean())
+	count = modisImages.select([0]).reduce(ee.Reducer.count()).rename(['cloudFreeCount'])
+	stats = mean.addBands(stdDev).multiply(10000).addBands(cloudScorePctls).addBands(count).int16().set(args)
+	Map.addLayer(stats.clip(exportArea),{'min':0,'max':30},'TDOM Stats')
+	# print(stats.getInfo())
+	outputName = '{}_CS-TDOM-Stats_{}-{}_{}-{}'.format(name,startYear,endYear,startJulian,endJulian)
+	print(outputName)
+	exportToAssetWrapper(stats,outputName,exportPath+'/'+outputName,pyramidingPolicyObject = None,roi= exportArea,scale= None,crs = crs,transform = transform)
 #Function to get a z score from a given set of imates and dates
 def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3,baselineGap = 1,zReducer = ee.Reducer.percentile([70]),zThresh = -3,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False):
 	args = formatArgs(locals())
@@ -127,20 +151,20 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 #Wrapper for rtfd to run z-score and tdd methods
 def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, tddEpochLength = 5, baselineGap = 1, indexNames = ['NBR'],zThresh = -2.5,slopeThresh = -0.05, zReducer = ee.Reducer.percentile([60]),tddAnnualReducer = ee.Reducer.percentile([50]),\
 	zenithThresh = 90,addLookAngleBands = True,applyCloudScore = True, applyTDOM = True, cloudScoreThresh = 20,performCloudScoreOffset = True,cloudScorePctl = 10, zScoreThresh = -1, shadowSumThresh = 0.35, contractPixels = 0,dilatePixels = 2.5,resampleMethod = 'bicubic',preComputedCloudScoreOffset = None,preComputedTDOMIRMean = None,preComputedTDOMIRStdDev = None,\
-	applyLCMSTreeMask = True,
+	treeMask = None,
 	crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False,exportRawSlope = False,exportZOutputs = False,exportTDDOutputs = False):
 
 	#Set up union of all years needed
 	startYear = min(analysisYears) - max([tddEpochLength,zBaselineLength]) - baselineGap
 	endYear = max(analysisYears)
 	
-	#Pull in lcms data for masking
-	lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2020-5").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
-	lcmsChange = lcms.select(['Change'])
-	lcmsChange = lcmsChange.map(lambda img: img.gte(2).And(img.lte(4))).max().selfMask()
-	lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max().selfMask()
-	# Map.addLayer(lcmsChange,{'min':1,'max':1,'palette':'800'},'LCMS Change',False)
-	Map.addLayer(lcmsTreeMask,{'min':1,'max':1,'palette':'080'},'LCMS Trees',False)
+	# #Pull in lcms data for masking
+	# lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2020-5").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
+	# lcmsChange = lcms.select(['Change'])
+	# lcmsChange = lcmsChange.map(lambda img: img.gte(2).And(img.lte(4))).max().selfMask()
+	# lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max().selfMask()
+	# # Map.addLayer(lcmsChange,{'min':1,'max':1,'palette':'800'},'LCMS Change',False)
+	# Map.addLayer(lcmsTreeMask,{'min':1,'max':1,'palette':'080'},'LCMS Trees',False)
 
 	#Find union of julian dates
 	startJulian = min(startJulians)
@@ -170,10 +194,10 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	modisImages = ee.ImageCollection(modisImages)
 
 	#Mask out non trees if specified
-	if applyLCMSTreeMask:
-		print('Applying LCMS Tree Mask')
-		modisImages = modisImages.map(lambda img: img.updateMask(lcmsTreeMask))
-
+	if treeMask != None:
+		print('Applying  Tree Mask')
+		modisImages = modisImages.map(lambda img: img.updateMask(treeMask))
+		Map.addLayer(treeMask,{'min':1,'max':1,'palette':'080','classLegendDict':{'Trees':'080'}},'Tree Mask',False)
 	#Bring in raw images for charting
 	Map.addLayer(modisImages.select(indexNames),{'opacity':0},'Raw MODIS Time Series',False)
 
@@ -184,6 +208,7 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	full_year_list = []
 
 	for analysisYear in analysisYears:
+		Map.addLayer(modisImages.filter(ee.Filter.calendarRange(analysisYear,analysisYear,'year')).median().reproject(crs,transform,scale),vizParamsFalse,'{} Composite'.format(analysisYear),False)
 		for startJulian in startJulians:
 			endJulian = startJulian + nDays-1
 			full_year_list.append(round(analysisYear+(startJulian/365.25),2))
