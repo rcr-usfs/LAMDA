@@ -19,31 +19,39 @@
 ####################################################################################################
 from geeViz.changeDetectionLib import *
 ####################################################################################################
+#Function to compute cloudScore offsets and TDOM stats for MODIS
 def computeCloudScoreTDOMStats(startYear,endYear,startJulian,endJulian,exportArea,exportPath,name,crs,transform,percentiles = [5,10],cloudScoreThresh =5,cloudScorePctl = 5,contractPixels = 0,dilatePixels = 1.5,performCloudScoreOffset = True,tdomBands = ['nir','swir2']):
 	args = formatArgs(locals())
 	if 'args' in args.keys():
 		del args['args']
-	# print(args)
+	#Get MODIS images
 	modisImages = getModisData(startYear,endYear,startJulian,endJulian,daily = True,maskWQA = False,zenithThresh = 90,useTempInCloudMask = True,addLookAngleBands = False,resampleMethod = 'bicubic')
 
+	#Compute cloudScore
 	cloudScores = modisImages.map(modisCloudScore)
 
+	#Compute the percentiles
 	cloudScorePctls = cloudScores.reduce(ee.Reducer.percentile(percentiles))
 	Map.addLayer(cloudScorePctls.clip(exportArea),{'min':0,'max':30},'Cloud Score pctls')
 	Map.addLayer(modisImages.median().clip(exportArea),vizParamsFalse,'Before Masking')
+
+	#Bust out clouds
 	modisImages = applyCloudScoreAlgorithm(modisImages,modisCloudScore,cloudScoreThresh,cloudScorePctl,contractPixels,dilatePixels,performCloudScoreOffset); 
 	Map.addLayer(modisImages.median().clip(exportArea),vizParamsFalse,'After Masking')
 
+	#Compute TDOM stats
 	stdDev = modisImages.select(tdomBands).reduce(ee.Reducer.stdDev())
 	mean = modisImages.select(tdomBands).reduce(ee.Reducer.mean())
 	count = modisImages.select([0]).reduce(ee.Reducer.count()).rename(['cloudFreeCount'])
 	stats = mean.addBands(stdDev).multiply(10000).addBands(cloudScorePctls).addBands(count).int16().setMulti(args)
 	stats = ee.Image(stats)
 	Map.addLayer(stats.clip(exportArea),{'min':500,'max':2000},'TDOM Stats')
-	# print(stats.getInfo())
+	
+	#Export the output
 	outputName = '{}_CS-TDOM-Stats_{}-{}_{}-{}'.format(name,startYear,endYear,startJulian,endJulian)
 	print(outputName)
 	exportToAssetWrapper(stats,outputName,exportPath+'/'+outputName,pyramidingPolicyObject = None,roi= exportArea,scale= None,crs = crs,transform = transform)
+####################################################################################################
 #Function to get a z score from a given set of imates and dates
 def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3,baselineGap = 1,zReducer = ee.Reducer.percentile([70]),zThresh = -3,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False):
 	args = formatArgs(locals())

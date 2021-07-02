@@ -26,9 +26,9 @@ from RTFD_GEE_Lib import *
 #Specify years to run RTFD Z-Score and TDD methods
 analysisYears = [2020]
 
-nDays = 32
+nDays = 32 #16 for CONUS, something like 64 or so for HI, 32 or so for AK
 
-startJulians = [201,216,231]#range(145,265+1,8)#range(65,321+1,8)#[320,335,350]
+startJulians = [190]#[201,216,231]#range(145,265+1,8)#range(65,321+1,8)#[320,335,350]
 
 #Which indices to use
 #Options are ['blue','green','red','nir','swir1','swir2','temp',NDVI','NBR','NDMI]
@@ -55,7 +55,7 @@ zBaselineLength = 3
 
 #Specify the number of years between the analyss year and baseline
 #Useful if an area experienced change two years in a row
-baselineGap = 1
+baselineGap = 0
 
 #Change threshold for z (generally somewhere from -2 to -3 works well)
 #Use higher number to include more loss
@@ -69,12 +69,12 @@ zReducer = ee.Reducer.percentile([50])
 #Parameters for MODIS image processing
 resampleMethod = 'bicubic'
 zenithThresh = 90
-addLookAngleBands = True
+addLookAngleBands = False
 #Cloud masking params
 applyCloudScore = True
 applyTDOM = True
-cloudScoreThresh = 20
-performCloudScoreOffset = False
+cloudScoreThresh = 20 
+performCloudScoreOffset = False #Only need to set to True if running RTFD over bright areas (not the case if only running over trees)
 cloudScorePctl = 10
 zScoreThresh = -1
 shadowSumThresh = 0.35
@@ -83,26 +83,23 @@ dilatePixels = 2.5
 
 #If available, bring in preComputed cloudScore offsets and TDOM stats
 #Set to null if computing on-the-fly is wanted
-#These have been pre-computed for all CONUS for MODIS - if running over AK or HI set to None
+#These have been pre-computed for all CONUS, AK, and HI for MODIS. If outside these areas, set to None below
 cloudScoreTDOMStatsDir = 'projects/gtac-rtfd/assets/MODIS-CS-TDOM-Stats'
-cloudScoreTDOMStats = ee.ImageCollection('projects/USFS/FHAAST/RTFD/TDOM_Stats')\
+conuscloudScoreTDOMStats = ee.ImageCollection('projects/USFS/FHAAST/RTFD/TDOM_Stats')\
             .map(lambda img: img.updateMask(img.neq(-32768)))\
-            .mosaic()
-            
-preComputedCloudScoreOffset = None#cloudScoreTDOMStats.select(['cloudScore_p'+str(cloudScorePctl)])
+           
+akHICloudScoreTDOMStats = ee.ImageCollection(cloudScoreTDOMStatsDir)
+cloudScoreTDOMStats = conuscloudScoreTDOMStats.merge(akHICloudScoreTDOMStats).mosaic()
+
+preComputedCloudScoreOffset = cloudScoreTDOMStats.select(['cloudScore_p'+str(cloudScorePctl)])
 
 #The TDOM stats are the mean and standard deviations of the two bands used in TDOM
 #By default, TDOM uses the nir and swir1 bands
-preComputedTDOMIRMean = None#cloudScoreTDOMStats.select(['.*_mean']).divide(10000)
-preComputedTDOMIRStdDev = None#cloudScoreTDOMStats.select(['.*_stdDev']).divide(10000)
+preComputedTDOMIRMean = cloudScoreTDOMStats.select(['.*_mean']).divide(10000)
+preComputedTDOMIRStdDev = cloudScoreTDOMStats.select(['.*_stdDev']).divide(10000)
 
-#Use this if outside CONUS
+#Use this if outside CONUS, AK, and HI
 # preComputedCloudScoreOffset, preComputedTDOMIRMean, preComputedTDOMIRStdDev = None,None,None
-
-###########################################
-#Analysis area masking parameters
-#Whether to apply LCMS tree mask
-applyLCMSTreeMask = True
 
 ###########################################
 #Exporting params
@@ -193,15 +190,10 @@ exportTDDOutputs = False
 
 
 #Area to export
-# exportArea =ee.Geometry.Polygon(
-#         [[[-84.28172252682539, 45.13859495600731],
-#           [-84.28172252682539, 44.63654878793849],
-#           [-83.62254283932539, 44.63654878793849],
-#           [-83.62254283932539, 45.13859495600731]]], None, False)
 exportArea = export_area_dict[exportAreaName]
-#Whether to add prelim outputs to map to view
-runGEEViz = False	
 
+#Whether to add prelim outputs to map to view
+runGEEViz = True	
 #######################################################
 #Set up tree masks
 #Set up union of all years needed
@@ -212,25 +204,34 @@ endYear = max(analysisYears)
 lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2020-5").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
 lcmsChange = lcms.select(['Change'])
 lcmsChange = lcmsChange.map(lambda img: img.gte(2).And(img.lte(4))).max().selfMask()
-lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max().selfMask()
+lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max()
 # Map.addLayer(lcmsChange,{'min':1,'max':1,'palette':'800'},'LCMS Change',False)
 # Map.addLayer(lcmsTreeMask,{'min':1,'max':1,'palette':'080','classLegendDict':{'Trees':'080'}},'LCMS Trees',False)
 
 #Pull in AK and HI tree masks (no LCMS currently available across all of AK or any of HI)
 akTreeMask = ee.Image('projects/gtac-rtfd/assets/Ancillary/AK_forest_mask')
-hiTreeMask = ee.Image("USGS/NLCD_RELEASES/2016_REL/2016_HI").gte(10).selfMask()
+hiTreeMask = ee.Image("USGS/NLCD_RELEASES/2016_REL/2016_HI").gte(10)
+
 # Map.addLayer(akTreeMask,{'min':1,'max':1,'palette':'080','classLegendDict':{'Trees':'080'}},'AK FIA Trees',False)
 # Map.addLayer(exportArea,{},'Study Area')
-tree_mask_dict = {'CONUS':akTreeMask,
+tree_mask_dict = {'CONUS':lcmsTreeMask,
                   'AK':akTreeMask,
                   'HI':hiTreeMask}
-tree_mask = tree_mask_dict[exportAreaName]
+
+#Mosaic all tree masks
+#Set to None if applying a tree mask isn't needed
+tree_mask = ee.Image.cat([lcmsTreeMask,akTreeMask,hiTreeMask]).reduce(ee.Reducer.max()).selfMask()#tree_mask_dict[exportAreaName]
+
 ####################################################################################################
-# rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,exportZOutputs,exportTDDOutputs)
-
 #Compute cloudScore and TDOM stats if they are not available
-computeCloudScoreTDOMStats(2020,2020,152,212,exportArea,cloudScoreTDOMStatsDir,exportAreaName,crs,transform)
+# computeCloudScoreTDOMStats(2020,2020,152,212,exportArea,cloudScoreTDOMStatsDir,exportAreaName,crs,transform)
 
+
+#Run RTFD using parameters above
+rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,exportZOutputs,exportTDDOutputs)
+
+
+#View map
 if runGEEViz:
 	Map.view()
 
