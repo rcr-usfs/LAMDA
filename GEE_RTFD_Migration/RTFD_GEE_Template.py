@@ -1,5 +1,5 @@
 """
-   Copyright 2021 Ian Housman
+   Copyright 2021 Ian Housman, RedCastle Resources Inc.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ from RTFD_GEE_Lib import *
 
 #Parameters used for both RTFD Z-Score and TDD methods
 #Specify years to run RTFD Z-Score and TDD methods
-analysisYears = [2020]
+analysisYears = [2021]
 
-nDays = 32 #16 for CONUS, something like 64 or so for HI, 32 or so for AK
+nDays = 16#32 #16 for CONUS, something like 64 or so for HI, 32 or so for AK
 
-startJulians = [190]#[201,216,231]#range(145,265+1,8)#range(65,321+1,8)#[320,335,350]
+startJulians = [177]#range(145,185,8)#range(65,321+1,8)#[201,216,231]#range(145,265+1,8)#range(65,321+1,8)#[320,335,350]
 
 #Which indices to use
 #Options are ['blue','green','red','nir','swir1','swir2','temp',NDVI','NBR','NDMI]
@@ -73,8 +73,8 @@ addLookAngleBands = False
 #Cloud masking params
 applyCloudScore = True
 applyTDOM = True
-cloudScoreThresh = 20 
-performCloudScoreOffset = False #Only need to set to True if running RTFD over bright areas (not the case if only running over trees)
+cloudScoreThresh = 20   
+performCloudScoreOffset = False #Only need to set to True if running RTFD over bright areas (not the case if only running over dense trees. Can help avoid cloud masking commission over PJ forests)
 cloudScorePctl = 10
 zScoreThresh = -1
 shadowSumThresh = 0.35
@@ -139,30 +139,8 @@ hi_study_area = ee.Geometry.Polygon([
       ]
     ]
   ],None,False)
-ak_study_area = ee.Geometry.Polygon([
-    [
-      [
-        172.34783450770118,
-        51.17507314490824
-      ],
-      [
-        230.02585011272546,
-        51.17507314490824
-      ],
-      [
-        230.02585011272546,
-        71.43978827307926
-      ],
-      [
-        172.34783450770118,
-        71.43978827307926
-      ],
-      [
-        172.34783450770118,
-        51.17507314490824
-      ]
-    ]
-  ],None,False)
+ak_study_area = ee.FeatureCollection("TIGER/2018/States")\
+        .filter(ee.Filter.eq('NAME','Alaska'))
 export_area_dict = {'AK':ak_study_area,
                     'HI':hi_study_area,
                     'CONUS': ee.FeatureCollection('projects/lcms-292214/assets/CONUS-Ancillary-Data/conus')}
@@ -176,24 +154,58 @@ transform = transform_dict[exportAreaName]#Specify transform if scale is None an
 scale = None #Specify scale if transform is None
 
 #Google Cloud Storage bucket to export outputs to
-exportBucket ='rtfd-scratch'
+exportBucket ='rtfd-2021'
+
+#Location to copy outputs to locally
+local_output_dir = r'Q:\RTFD_gee_method\data4'
+
+#Location of gsutil 
+gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'
+
+#Regex to filter outputs
+output_filter_strings = ['*CONUS_RTFD*','*AK_RTFD*']#'*CONUS_RTFD_Z*ay2020*','*CONUS_RTFD_TDD*yrs2016-2020*']
 
 #Whether to export various outputs
 #Whether to export each individual raw z score or TDD trend slope
-exportRawZ = False
-exportRawSlope = False
+exportRawZ = True
+exportRawSlope = True
 
 #Whether to export the final thresholded change count
 exportZOutputs = False
 exportTDDOutputs = False
 
+#Post processing params
+
+#Set up some possible color palette
+continuous_palette_chastain = ['a83800','ff5500','e0e0e0','a4ff73','38a800']
+continuous_palette_lcms =['d54309','3d4551','00a398'] #['001261','011A66','02226B','022B71','023376','023A7B','034280','034A85','06548B','0B5D91','136697','1E6F9D','2B79A4','3C85AC','4B90B3','5A9ABA','6AA4C1','7AAEC8','8DBAD0','9DC4D6','ADCDDD','BDD6E3','CCDFE8','DEE6E9','E8E7E5','EEE3DC','EEDBD0','EBD0C0','E7C6B2','E3BCA5','DFB298','DBA88B','D69D7C','D29470','CE8B64','CA8258','C6794C','C26E3F','BE6533','B85C28','B2511D','A94512','9C3709','912D06','872406','7E1D06','741506','6A0D07','620607','590008']
+# continuous_palette.reverse()  
+continuous_palette = continuous_palette_chastain
+
+#Provide a key to find for each type of RTFD data (_TDD_ and _Z_ work fine for raw outputs)
+#Main things to change are the stretch and stretch_mult to try out. 
+#The stretch is used to clip the complete raw data in a min max fashion, then the stretch_mult multiplies that number
+#For example, z scores typically go from around -10 to 10 at the tails
+#If a stretch of 10 is provided, the data are first clipped to -10 to 10 stdDev, and then 10 is added
+#Now all values range from 0-20. Then the stretch_mult is applied so all values range from 0-200 and nicely fit in 8 bit space (0-255)
+#Changing the stretch to a smaller number will cut off more of the tails of the distribution, but highlight more subtle change
+#If changing the stretch to a larger number, the stretch_mult will need lowered so it still fits into 8 bit space
+#This is currently done manually since a simple 0-255 stretch is currently not utilized
+post_process_dict = {
+  '_TDD_':{'palette':continuous_palette,
+      'scale_factor':10000,
+      'stretch' : 0.1},
+  '_Z_':{'palette':continuous_palette,
+      'scale_factor':1000,
+      'stretch' : 5},
+}
 
 
 #Area to export
 exportArea = export_area_dict[exportAreaName]
 
 #Whether to add prelim outputs to map to view
-runGEEViz = True	
+runGEEViz = False	
 #######################################################
 #Set up tree masks
 #Set up union of all years needed
@@ -202,8 +214,8 @@ endYear = max(analysisYears)
 
 #Pull in lcms data for masking
 lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2020-5").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
-lcmsChange = lcms.select(['Change'])
-lcmsChange = lcmsChange.map(lambda img: img.gte(2).And(img.lte(4))).max().selfMask()
+# lcmsChange = lcms.select(['Change'])
+# lcmsChange = lcmsChange.map(lambda img: img.gte(2).And(img.lte(4))).max().selfMask()
 lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max()
 # Map.addLayer(lcmsChange,{'min':1,'max':1,'palette':'800'},'LCMS Change',False)
 # Map.addLayer(lcmsTreeMask,{'min':1,'max':1,'palette':'080','classLegendDict':{'Trees':'080'}},'LCMS Trees',False)
@@ -221,15 +233,24 @@ tree_mask_dict = {'CONUS':lcmsTreeMask,
 #Mosaic all tree masks
 #Set to None if applying a tree mask isn't needed
 tree_mask = ee.Image.cat([lcmsTreeMask,akTreeMask,hiTreeMask]).reduce(ee.Reducer.max()).selfMask()#tree_mask_dict[exportAreaName]
-
+# exportToDriveWrapper(tree_mask,'tree-export-test','test',roi= exportArea,scale= None,crs = crs,transform = transform,outputNoData = 255)
 ####################################################################################################
+#Function calls and scratch space
+#Comment out each section as needed
+
 #Compute cloudScore and TDOM stats if they are not available
 # computeCloudScoreTDOMStats(2020,2020,152,212,exportArea,cloudScoreTDOMStatsDir,exportAreaName,crs,transform)
 
 
 #Run RTFD using parameters above
-rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,exportZOutputs,exportTDDOutputs)
+#It will overwrite outputs if they already exist in cloudStorage
+# rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,exportZOutputs,exportTDDOutputs)
 
+#After exports are done, pull them down locally 
+sync_rtfd_outputs(exportBucket,local_output_dir,output_filter_strings,gsutil_path)
+
+#The correct the CRS, set no data, update the stats, convert to 8 bit, and set a colormap
+post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict)
 
 #View map
 if runGEEViz:

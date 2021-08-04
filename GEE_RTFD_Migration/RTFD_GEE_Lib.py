@@ -1,5 +1,5 @@
 """
-   Copyright 2021 Ian Housman
+   Copyright 2021 Ian Housman, RedCastle Resources Inc.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@
 #Intended to work within the geeViz package
 ####################################################################################################
 from geeViz.changeDetectionLib import *
+import time,glob
+import raster_processing_lib as rpl
 ####################################################################################################
 #Function to compute cloudScore offsets and TDOM stats for MODIS
 def computeCloudScoreTDOMStats(startYear,endYear,startJulian,endJulian,exportArea,exportPath,name,crs,transform,percentiles = [5,10],cloudScoreThresh =5,cloudScorePctl = 5,contractPixels = 0,dilatePixels = 1.5,performCloudScoreOffset = True,tdomBands = ['nir','swir2']):
@@ -79,7 +81,7 @@ def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3
 
 	
 	#Compute z scores
-	analysisZs =  analysisImages.select(indexNames).map(lambda img: img.subtract(baselineMean).divide(baselineStdDev))
+	analysisZs =  analysisImages.select(indexNames).map(lambda img: (img.subtract(baselineMean)).divide(baselineStdDev))
 
 	#Reduce the z scores across time and then multiple bands (if more than one indexNames is specified)
 	analysisZ = analysisZs.reduce(zReducer).reduce(ee.Reducer.min())
@@ -95,8 +97,8 @@ def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3
 	if exportRawZ:
 		rawZOutputName = '{}_RTFD_Z_{}_bl{}-{}_ay{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),baselineStartYear,baselineEndYear,analysisYear,startJulian,endJulian)
 		print(rawZOutputName)
-		forExport = analysisZ.multiply(1000).clamp(-32767,32767).int16()
-		# Map.addLayer(forExport.clip(exportArea).unmask(-32768),{'min':-3000,'max':2000,'palette':'F00,888,00F'},rawZOutputName)
+		forExport = analysisZ.multiply(1000).clamp(-32767,32767).int16()#.clamp(-10,10).add(10).multiply(10).byte()#.clamp(-32767,32767).int16()
+		# Map.addLayer(forExport,{'min':0,'max':200,'palette':'F00,888,00F'},rawZOutputName)
 		exportToCloudStorageWrapper(forExport,rawZOutputName,exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
 
 	#Return raw z score and masked year image
@@ -147,8 +149,8 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 	if exportRawSlope:
 		rawSlopeOutputName = '{}_RTFD_TDD_{}_yrs{}-{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),years[0],years[-1],startJulian,endJulian)
 		print(rawSlopeOutputName)
-		forExport = slope.multiply(100000).clamp(-32767,32767).int16()
-		# Map.addLayer(forExport.clip(exportArea).unmask(-32768),{'min':-5000,'max':2000,'palette':'F00,888,00F'},rawSlopeOutputName)
+		forExport = slope.multiply(10000).clamp(-32767,32767).int16()#.clamp(-0.2,0.2).add(0.2).multiply(500).byte()#.multiply(100000).clamp(-32767,32767).int16()
+		# Map.addLayer(forExport,{'min':0,'max':200,'palette':'F00,888,00F'},rawSlopeOutputName)
 		exportToCloudStorageWrapper(forExport,rawSlopeOutputName,exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
 
 	#Return raw slope and date masked to thresholded slope
@@ -286,3 +288,84 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	if exportRawZ or exportRawSlope:
 		Map.addLayer(exportArea,{},'Export Area')
 
+############################################################### 
+############################################################### 
+############################################################### 
+#Functions to process outputs locally
+
+#Function to bring outputs from GCS to local folder
+def sync_rtfd_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
+
+	if not os.path.exists(output_folder):os.makedirs(output_folder)
+
+	#Track previous commands to speed things up
+	copy_done_file = os.path.join(output_folder,'.COPY_FINISHED')
+	if  os.path.exists(copy_done_file):
+		o = open(copy_done_file,'r')
+		commands = o.read().split(',')
+		o.close()
+	else:
+		commands = []
+
+	#Run each command provided
+	for output_filter_string in output_filter_strings:
+		sync_command = '{} -m cp -n -r gs://{}/{} {}'.format(gsutil_path,gs_bucket,output_filter_string,output_folder)
+	
+		if sync_command not in commands:
+			call = subprocess.Popen(sync_command)
+			while call.poll() == None:
+				print ('Still syncing')
+				time.sleep(5)
+
+			commands.append(sync_command)
+		else:
+			print('Already ran:',sync_command)
+
+	#Log which commands have been run
+	o = open(copy_done_file,'w')
+	o.write(','.join(commands))
+	o.close()
+############################################################### 
+#Function to correct projection, set no data, update stats, and stretch to 8 bit
+def post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict):
+
+	#Track files that are already finished
+	done_file = os.path.join(local_output_dir,'.POST_PROCESS_DONE')
+	if os.path.exists(done_file):
+		o = open(done_file)
+		done_files = o.read().split(',')
+		o.close()
+	else:
+		done_files = []
+
+	#Iterate across each key provided
+	for k in list(post_process_dict.keys()):
+		
+		#Filter out raw tifs for given key
+		tifs = glob.glob(os.path.join(local_output_dir,'*{}*.tif'.format(k)))
+		tifs = [i for i in tifs if i.find('8bit') == -1]
+		
+		#Update projection, no data, and stats for each raw output
+		for tif in tifs:
+			if tif not in done_files:
+				
+				crs_key = os.path.basename(tif).split('_')[0]
+				crs = crs_dict[crs_key]
+				print('Updating projection:',tif)
+				rpl.set_projection(tif,crs)
+				print('Setting no data and updating stats:',tif)
+				rpl.set_no_data(tif, -32768, update_stats = True, stat_stretch_type = 'stdDev',stretch_n_stdDev = 5)
+				done_files.append(tif)
+			
+		
+			else:
+				print('Already post processed:',tif)
+
+			#Stretch raw to 8 bit
+			rpl.stretch_to_8bit(tif,-32768,post_process_dict[k]['scale_factor'],post_process_dict[k]['stretch'],post_process_dict[k]['palette'])
+			print()
+
+	#Log files that have been processed
+	o = open(done_file,'w')
+	o.write(','.join(done_files))
+	o.close()
