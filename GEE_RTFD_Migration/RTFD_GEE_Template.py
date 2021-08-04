@@ -160,7 +160,8 @@ exportBucket ='rtfd-2021'
 local_output_dir = r'Q:\RTFD_gee_method\data4'
 
 #Location of gsutil 
-gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'
+#May need a full path to the location if it's not in the PATH
+gsutil_path = 'gsutil.cmd'
 
 #Regex to filter outputs
 output_filter_strings = ['*CONUS_RTFD*','*AK_RTFD*']#'*CONUS_RTFD_Z*ay2020*','*CONUS_RTFD_TDD*yrs2016-2020*']
@@ -247,6 +248,9 @@ tree_mask = ee.Image.cat([lcmsTreeMask,akTreeMask,hiTreeMask]).reduce(ee.Reducer
 # rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,exportZOutputs,exportTDDOutputs)
 
 #After exports are done, pull them down locally 
+#If you get an error when running this, you may need to re-authenticate
+#To do this, run gcloud auth login
+#Make sure you open the url in a browswer that is pointing to the Google account that has access to the bucket you're pulling from
 sync_rtfd_outputs(exportBucket,local_output_dir,output_filter_strings,gsutil_path)
 
 #The correct the CRS, set no data, update the stats, convert to 8 bit, and set a colormap
