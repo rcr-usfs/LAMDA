@@ -17,29 +17,56 @@
 #This method is a pixel-wise adaptation of the original RTFD algorithms
 #Intended to work within the geeViz package
 ####################################################################################################
-from geeViz.changeDetectionLib import *
-import time,glob
+import json,time,glob,ee,os,subprocess
+from google.cloud import storage
+#Initialize GEE - using service account if possible
+try:
+	key_file = r"Q:\RTFD_gee_method\credentials\gtac-rtfd-b50238099cd8.json"
+	ee.Initialize(ee.ServiceAccountCredentials(json.load(open(key_file)), key_file))
+	print('Successfully initialized using service account GEE credentials')
+except Exception as e:
+	print(e)
+	print('Will use local GEE credentials')
+
+
+import geeViz.changeDetectionLib as gv
+import geeViz.taskManagerLib as tml
+ee = gv.ee
+Map = gv.Map
+Map.clearMap()
 import raster_processing_lib as rpl
+
+#Set environment variable for GCS use
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r"Q:\RTFD_gee_method\credentials\gtac-rtfd-b50238099cd8.json"
+tracking_filenames = []
 ####################################################################################################
+#Checks to see if a cloud storage object exists
+def gcs_exists(bucket,filename):
+  storage_client = storage.Client()
+  stats = storage.Blob(bucket=storage_client.bucket(bucket), name=filename).exists(storage_client)
+  return stats
+
 #Function to compute cloudScore offsets and TDOM stats for MODIS
-def computeCloudScoreTDOMStats(startYear,endYear,startJulian,endJulian,exportArea,exportPath,name,crs,transform,percentiles = [5,10],cloudScoreThresh =5,cloudScorePctl = 5,contractPixels = 0,dilatePixels = 1.5,performCloudScoreOffset = True,tdomBands = ['nir','swir2']):
-	args = formatArgs(locals())
+# Example call to compute cloudScore and TDOM stats if they are not available
+# computeCloudScoreTDOMStats(2020,2020,152,212,exportArea,cloudScoreTDOMStatsDir,exportAreaName,crs,transform)
+def computeCloudScoreTDOMStats(startYear,endYear,startJulian,endJulian,exportArea,exportPath,name,crs,transform,percentiles = [5,10],cloudScoreThresh =20,cloudScorePctl = 10,contractPixels = 0,dilatePixels = 2.5,performCloudScoreOffset = True,tdomBands = ['nir','swir2']):
+	args = gv.formatArgs(locals())
 	if 'args' in args.keys():
 		del args['args']
 	#Get MODIS images
-	modisImages = getModisData(startYear,endYear,startJulian,endJulian,daily = True,maskWQA = False,zenithThresh = 90,useTempInCloudMask = True,addLookAngleBands = False,resampleMethod = 'bicubic')
+	modisImages = gv.getModisData(startYear,endYear,startJulian,endJulian,daily = True,maskWQA = False,zenithThresh = 90,useTempInCloudMask = True,addLookAngleBands = False,resampleMethod = 'bicubic')
 
 	#Compute cloudScore
-	cloudScores = modisImages.map(modisCloudScore)
+	cloudScores = modisImages.map(gv.modisCloudScore)
 
-	#Compute the percentiles
+	#Compute the cloudScore percentiles
 	cloudScorePctls = cloudScores.reduce(ee.Reducer.percentile(percentiles))
-	Map.addLayer(cloudScorePctls.clip(exportArea),{'min':0,'max':30},'Cloud Score pctls')
-	Map.addLayer(modisImages.median().clip(exportArea),vizParamsFalse,'Before Masking')
+	Map.addLayer(cloudScorePctls.clip(exportArea),{'min':0,'max':30},'{} Cloud Score pctls'.format(name))
+	Map.addLayer(modisImages.median().clip(exportArea),gv.vizParamsFalse,'{} Before Masking'.format(name))
 
 	#Bust out clouds
-	modisImages = applyCloudScoreAlgorithm(modisImages,modisCloudScore,cloudScoreThresh,cloudScorePctl,contractPixels,dilatePixels,performCloudScoreOffset); 
-	Map.addLayer(modisImages.median().clip(exportArea),vizParamsFalse,'After Masking')
+	modisImages = gv.applyCloudScoreAlgorithm(modisImages,gv.modisCloudScore,cloudScoreThresh,cloudScorePctl,contractPixels,dilatePixels,performCloudScoreOffset); 
+	Map.addLayer(modisImages.median().clip(exportArea),gv.vizParamsFalse,'{} After Masking'.format(name))
 
 	#Compute TDOM stats
 	stdDev = modisImages.select(tdomBands).reduce(ee.Reducer.stdDev())
@@ -47,20 +74,22 @@ def computeCloudScoreTDOMStats(startYear,endYear,startJulian,endJulian,exportAre
 	count = modisImages.select([0]).reduce(ee.Reducer.count()).rename(['cloudFreeCount'])
 	stats = mean.addBands(stdDev).multiply(10000).addBands(cloudScorePctls).addBands(count).int16().setMulti(args)
 	stats = ee.Image(stats)
-	Map.addLayer(stats.clip(exportArea),{'min':500,'max':2000},'TDOM Stats')
+	Map.addLayer(stats.clip(exportArea),{'min':500,'max':2000},'{} TDOM Stats'.format(name))
 	
 	#Export the output
 	outputName = '{}_CS-TDOM-Stats_{}-{}_{}-{}'.format(name,startYear,endYear,startJulian,endJulian)
 	print(outputName)
-	exportToAssetWrapper(stats,outputName,exportPath+'/'+outputName,pyramidingPolicyObject = None,roi= exportArea,scale= None,crs = crs,transform = transform)
+	gv.exportToAssetWrapper(stats,outputName,exportPath+'/'+outputName,pyramidingPolicyObject = None,roi= exportArea,scale= None,crs = crs,transform = transform)
+	
 ####################################################################################################
 #Function to get a z score from a given set of imates and dates
 def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3,baselineGap = 1,zReducer = ee.Reducer.percentile([70]),zThresh = -3,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False):
-	args = formatArgs(locals())
+	args = gv.formatArgs(locals())
 	if 'args' in args.keys():
 		del args['args']
-	print(args)
+	# print(args)
 
+	current_tasks = tml.getTasks()
 	#Filter image dates
 	images = images.filter(ee.Filter.calendarRange(startJulian,endJulian))
 
@@ -96,11 +125,14 @@ def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3
 	#Export z score if chosen
 	if exportRawZ:
 		rawZOutputName = '{}_RTFD_Z_{}_bl{}-{}_ay{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),baselineStartYear,baselineEndYear,analysisYear,startJulian,endJulian)
-		print(rawZOutputName)
+		tracking_filenames.append(rawZOutputName)
+		
 		forExport = analysisZ.multiply(1000).clamp(-32767,32767).int16()#.clamp(-10,10).add(10).multiply(10).byte()#.clamp(-32767,32767).int16()
 		# Map.addLayer(forExport,{'min':0,'max':200,'palette':'F00,888,00F'},rawZOutputName)
-		exportToCloudStorageWrapper(forExport,rawZOutputName,exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
-
+		if not gcs_exists(exportBucket,rawZOutputName+'.tif') and rawZOutputName not in current_tasks['ready'] and rawZOutputName not in current_tasks['running']:
+			gv.exportToCloudStorageWrapper(forExport,rawZOutputName,exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
+		else:
+			print(rawZOutputName, ' already exists or is in queue to run')
 	#Return raw z score and masked year image
 	return ee.Image.cat([analysisZ,yearImage]).rename(['Raw_Z','Year']).float()\
 	.set('system:time_start',ee.Date.fromYMD(analysisYear,1,1).advance(endJulian,'day').millis()).set(args)
@@ -114,10 +146,12 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 	years = list(range(epochStartYear,analysisYear+1))
 	print('TDD years:',years)
 
-	args = formatArgs(locals())
+	args = gv.formatArgs(locals())
 	if 'args' in args.keys():
 		del args['args']
-	print(args)
+	# print(args)
+
+	current_tasks = tml.getTasks()
 
 	#Filter image dates
 	images = images.filter(ee.Filter.calendarRange(startJulian,endJulian))
@@ -130,7 +164,7 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 	composites = ee.ImageCollection([images.filter(ee.Filter.calendarRange(yr,yr,'year')).reduce(annualReducer).set('system:time_start',ee.Date.fromYMD(yr,1,1).advance(startJulian,'day').millis()).rename(bns) for yr in years])
 
 	#Get linear fit model and predicted values with said model (from changeDetectionLib)
-	model,predicted = getLinearFit(composites)
+	model,predicted = gv.getLinearFit(composites)
 	predicted = ee.ImageCollection(predicted)
 
 	#Reduce the slope to min of multiple indexNames specified
@@ -148,10 +182,15 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 	#Export slope if chosen
 	if exportRawSlope:
 		rawSlopeOutputName = '{}_RTFD_TDD_{}_yrs{}-{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),years[0],years[-1],startJulian,endJulian)
-		print(rawSlopeOutputName)
+		tracking_filenames.append(rawSlopeOutputName)
+		
 		forExport = slope.multiply(10000).clamp(-32767,32767).int16()#.clamp(-0.2,0.2).add(0.2).multiply(500).byte()#.multiply(100000).clamp(-32767,32767).int16()
 		# Map.addLayer(forExport,{'min':0,'max':200,'palette':'F00,888,00F'},rawSlopeOutputName)
-		exportToCloudStorageWrapper(forExport,rawSlopeOutputName,exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
+		if not gcs_exists(exportBucket,rawSlopeOutputName+'.tif') and rawSlopeOutputName not in current_tasks['ready'] and rawSlopeOutputName not in current_tasks['running']:
+			gv.exportToCloudStorageWrapper(forExport,rawSlopeOutputName,exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
+		else:
+			print(rawSlopeOutputName, ' already exists or is in queue to run')
+		
 
 	#Return raw slope and date masked to thresholded slope
 	return ee.Image.cat([slope,yearImage]).rename(['Raw_Slope','Year']).float()\
@@ -163,7 +202,7 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, tddEpochLength = 5, baselineGap = 1, indexNames = ['NBR'],zThresh = -2.5,slopeThresh = -0.05, zReducer = ee.Reducer.percentile([60]),tddAnnualReducer = ee.Reducer.percentile([50]),\
 	zenithThresh = 90,addLookAngleBands = True,applyCloudScore = True, applyTDOM = True, cloudScoreThresh = 20,performCloudScoreOffset = True,cloudScorePctl = 10, zScoreThresh = -1, shadowSumThresh = 0.35, contractPixels = 0,dilatePixels = 2.5,resampleMethod = 'bicubic',preComputedCloudScoreOffset = None,preComputedTDOMIRMean = None,preComputedTDOMIRStdDev = None,\
 	treeMask = None,
-	crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False,exportRawSlope = False,exportZOutputs = False,exportTDDOutputs = False):
+	crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False,exportRawSlope = False):
 
 	#Set up union of all years needed
 	startYear = min(analysisYears) - max([tddEpochLength,zBaselineLength]) - baselineGap
@@ -182,7 +221,7 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	endJulian = max(startJulians)+nDays-1
 
 	#Get cloud and cloud shadow busted MODIS images from Aqua and Terra 250, 500, and 1000 m spatial resolution SR collections
-	modisImages = getProcessedModis(startYear,
+	modisImages = gv.getProcessedModis(startYear,
 							endYear,
 							startJulian,
 							endJulian,
@@ -219,7 +258,7 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	full_year_list = []
 
 	for analysisYear in analysisYears:
-		Map.addLayer(modisImages.filter(ee.Filter.calendarRange(analysisYear,analysisYear,'year')).median().reproject(crs,transform,scale),vizParamsFalse,'{} Composite'.format(analysisYear),False)
+		Map.addLayer(modisImages.filter(ee.Filter.calendarRange(analysisYear,analysisYear,'year')).median(),gv.vizParamsFalse,'{} Composite'.format(analysisYear),False)
 		for startJulian in startJulians:
 			endJulian = startJulian + nDays-1
 			full_year_list.append(round(analysisYear+(startJulian/365.25),2))
@@ -239,21 +278,21 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	lossYearPalette = 'ffffe5,fff7bc,fee391,fec44f,fe9929,ec7014,cc4c02'
 	lossDurPalette = '0C2780,E2F400,BD1600'
 	#Vizualize year of change for z-score and TDD
-	Map.addLayer(z_collection.max().select([1]).reproject(crs,transform,scale),{'min':min(full_year_list),'max':max(full_year_list),'palette':lossYearPalette},'Most Recent Z Departure',True)
+	Map.addLayer(z_collection.max().select([1]),{'min':min(full_year_list),'max':max(full_year_list),'palette':lossYearPalette},'Most Recent Z Departure',True)
 	if len(startJulians) > 1:
-		Map.addLayer(z_collection.select([1]).count().reproject(crs,transform,scale),{'min':1,'max':len(startJulians),'palette':lossDurPalette},'Count Z Departure',True)
+		Map.addLayer(z_collection.select([1]).count(),{'min':1,'max':len(startJulians),'palette':lossDurPalette},'Count Z Departure',True)
 
-	Map.addLayer(tdd_collection.max().select([1]).reproject(crs,transform,scale),{'min':min(full_year_list),'max':max(full_year_list),'palette':lossYearPalette},'Most Recent Negative Trend',True)
+	Map.addLayer(tdd_collection.max().select([1]),{'min':min(full_year_list),'max':max(full_year_list),'palette':lossYearPalette},'Most Recent Negative Trend',True)
 	if len(startJulians) > 1:
-		Map.addLayer(tdd_collection.select([1]).count().reproject(crs,transform,scale),{'min':1,'max':len(startJulians),'palette':lossDurPalette},'Count Negative Trend',True)
+		Map.addLayer(tdd_collection.select([1]).count(),{'min':1,'max':len(startJulians),'palette':lossDurPalette},'Count Negative Trend',True)
 	#Vizualize continuous outputs
 	if len(analysisYears) == 1 and len(startJulians) == 1:
-		Map.addLayer(ee.Image(z_collection.select([0]).max()).reproject(crs,transform,scale),{'min':-3,'max':2,'palette':'F00,888,00F'},'Raw Z-score')
-		Map.addLayer(ee.Image(tdd_collection.select([0]).max()).reproject(crs,transform,scale),{'min':-0.05,'max':0.02,'palette':'F00,888,00F'},'Raw Trend')
+		Map.addLayer(ee.Image(z_collection.select([0]).max()),{'min':-3,'max':2,'palette':'F00,888,00F'},'Raw Z-score')
+		Map.addLayer(ee.Image(tdd_collection.select([0]).max()),{'min':-0.05,'max':0.02,'palette':'F00,888,00F'},'Raw Trend')
 
 	else:
-		Map.addTimeLapse(z_collection.select([0]).map(lambda img:img.reproject(crs,transform,scale)),{'min':-3,'max':2,'palette':'F00,888,00F','dateFormat':'YYYYMMdd','advanceInterval':'day'},'Raw Z-score Time Lapse')
-		Map.addTimeLapse(tdd_collection.select([0]).map(lambda img:img.reproject(crs,transform,scale)),{'min':-0.05,'max':0.02,'palette':'F00,888,00F','dateFormat':'YYYYMMdd','advanceInterval':'day'},'Raw Trend Time Lapse')
+		Map.addTimeLapse(z_collection.select([0]).map(lambda img:img),{'min':-3,'max':2,'palette':'F00,888,00F','dateFormat':'YYYYMMdd','advanceInterval':'day'},'Raw Z-score Time Lapse')
+		Map.addTimeLapse(tdd_collection.select([0]).map(lambda img:img),{'min':-0.05,'max':0.02,'palette':'F00,888,00F','dateFormat':'YYYYMMdd','advanceInterval':'day'},'Raw Trend Time Lapse')
 		
 		Map.addLayer(z_collection.select([0]),{'opacity':0},'Raw Z-score Time Series',False)
 		Map.addLayer(tdd_collection.select([0]),{'opacity':0},'Raw Trend Time Series',False)
@@ -261,33 +300,33 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	#Export outputs if chosen
 	strAnalysisYears = [str(i) for i in analysisYears]
 	strStartJulians = [str(i) for i in startJulians]
-	if exportZOutputs:
-		zOutputName = '{}_RTFD_Z_{}_zThrsh{}_blLen{}_blGap{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(zThresh).replace('.',''),zBaselineLength,baselineGap,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
-		print(zOutputName)
-		countForExport = z_collection.select([1]).count().clamp(0,254).byte()
-		exportToCloudStorageWrapper(countForExport,'{}_count'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
+	# if exportZOutputs:
+	# 	zOutputName = '{}_RTFD_Z_{}_zThrsh{}_blLen{}_blGap{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(zThresh).replace('.',''),zBaselineLength,baselineGap,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
+	# 	print(zOutputName)
+	# 	countForExport = z_collection.select([1]).count().clamp(0,254).byte()
+	# 	exportToCloudStorageWrapper(countForExport,'{}_count'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
 
-		minZForExport = z_collection.select([0]).min().multiply(1000).clamp(-32767,32767).int16()
-		exportToCloudStorageWrapper(minZForExport,'{}_minZ'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
-	if exportTDDOutputs:
-		tddOutputName = '{}_RTFD_TDD_{}_slpThrsh{}_epLen{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(slopeThresh).replace('.',''),tddEpochLength,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
-		print(tddOutputName)
-		countForExport = tdd_collection.select([1]).count().clamp(0,254).byte()
-		exportToCloudStorageWrapper(countForExport,'{}_count'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
+	# 	minZForExport = z_collection.select([0]).min().multiply(1000).clamp(-32767,32767).int16()
+	# 	exportToCloudStorageWrapper(minZForExport,'{}_minZ'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
+	# if exportTDDOutputs:
+	# 	tddOutputName = '{}_RTFD_TDD_{}_slpThrsh{}_epLen{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(slopeThresh).replace('.',''),tddEpochLength,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
+	# 	print(tddOutputName)
+	# 	countForExport = tdd_collection.select([1]).count().clamp(0,254).byte()
+	# 	exportToCloudStorageWrapper(countForExport,'{}_count'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
 
-		minSlpForExport = tdd_collection.select([0]).min().multiply(100000).clamp(-32767,32767).int16()
-		exportToCloudStorageWrapper(minSlpForExport,'{}_minSlp'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
+	# 	minSlpForExport = tdd_collection.select([0]).min().multiply(100000).clamp(-32767,32767).int16()
+	# 	exportToCloudStorageWrapper(minSlpForExport,'{}_minSlp'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
 		
 
 
 	#Visualize legacy RTFD outputs
-	i1 = ee.ImageCollection('projects/gtac-rtfd/assets/GEE-Migration/testImages').mosaic()
-	i1 = i1.selfMask()
-	Map.addLayer(i1,{'min':75,'max':150,'palette':'F00,888,00F'},'Original RTFD 185-200',False)
+	# i1 = ee.ImageCollection('projects/gtac-rtfd/assets/GEE-Migration/testImages').mosaic()
+	# i1 = i1.selfMask()
+	# Map.addLayer(i1,{'min':75,'max':150,'palette':'F00,888,00F'},'Original RTFD 185-200',False)
 
 	if exportRawZ or exportRawSlope:
 		Map.addLayer(exportArea,{},'Export Area')
-
+	return tracking_filenames
 ############################################################### 
 ############################################################### 
 ############################################################### 
@@ -297,7 +336,7 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 def sync_rtfd_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
 
 	if not os.path.exists(output_folder):os.makedirs(output_folder)
-
+	call = None
 	#Track previous commands to speed things up
 	copy_done_file = os.path.join(output_folder,'.COPY_FINISHED')
 	if  os.path.exists(copy_done_file):
@@ -313,18 +352,28 @@ def sync_rtfd_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path
 	
 		if sync_command not in commands:
 			call = subprocess.Popen(sync_command)
-			while call.poll() == None:
-				print ('Still syncing')
-				time.sleep(5)
+			
 
 			commands.append(sync_command)
 		else:
 			print('Already ran:',sync_command)
-
+	if call != None:
+		while call.poll() == None:
+			print ('Still syncing')
+			time.sleep(5)
 	#Log which commands have been run
-	o = open(copy_done_file,'w')
-	o.write(','.join(commands))
-	o.close()
+	# o = open(copy_done_file,'w')
+	# o.write(','.join(commands))
+	# o.close()
+def upload_rtfd_outputs(local_folder,gs_bucket, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
+	sync_command = '{} -m cp -n -r {}/* gs://{}'.format(gsutil_path,local_folder,gs_bucket)
+	print(sync_command)
+	call = subprocess.Popen(sync_command)
+	
+	if call != None:
+		while call.poll() == None:
+			print ('Still syncing')
+			time.sleep(5)
 ############################################################### 
 #Function to correct projection, set no data, update stats, and stretch to 8 bit
 def post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict):
@@ -343,7 +392,7 @@ def post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict)
 		
 		#Filter out raw tifs for given key
 		tifs = glob.glob(os.path.join(local_output_dir,'*{}*.tif'.format(k)))
-		tifs = [i for i in tifs if i.find('8bit') == -1]
+		tifs = [i for i in tifs if i.find('8bit') == -1 and i.find('_persistence') == -1]
 		
 		#Update projection, no data, and stats for each raw output
 		for tif in tifs:
@@ -365,7 +414,50 @@ def post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict)
 			rpl.stretch_to_8bit(tif,-32768,post_process_dict[k]['scale_factor'],post_process_dict[k]['stretch'],post_process_dict[k]['palette'])
 			print()
 
-	#Log files that have been processed
+	#Log files tifhat have been processed
 	o = open(done_file,'w')
 	o.write(','.join(done_files))
 	o.close()
+###############################################################
+def calc_persistence_wrapper(local_output_dir, exportAreaName,indexNames,year,post_process_dict,persistence_n_periods = 3):
+	
+	#Iterate across each key provided
+	for k in list(post_process_dict.keys()):
+		tifs = glob.glob(os.path.join(local_output_dir,'*{}*{}*{}*{}*.tif'.format(exportAreaName,k,'-'.join(indexNames),year)))
+		tifs = [i for i in tifs if i.find('8bit') == -1 and i.find('_persistence') == -1]
+		
+		jds = list(set(int(os.path.basename(i).split('_jd')[-1].split('-')[0]) for i in tifs))
+		jds.sort()
+	
+		jds_persist = jds[persistence_n_periods-1:]
+
+		for i,jd_persist in enumerate(jds_persist):
+			jds_t = jds[i:i+persistence_n_periods]
+
+			
+			tifs_t = [i for i in tifs if int(os.path.basename(i).split('_jd')[-1].split('-')[0]) in jds_t]
+			output_persist = tifs_t[-1].split('_jd')[0]+'_jds{}_persistence.tif'.format('-'.join([str(i) for i in jds_t]))
+			if not os.path.exists(output_persist):
+				print(jds_t,len(tifs_t) == persistence_n_periods,output_persist)
+				rpl.calc_persistence(tifs_t,output_persist,post_process_dict[k]['scale_factor'],post_process_dict[k]['thresh'])
+			else:
+				print(output_persist,'already exists')
+############################################################### 
+def operational_rtfd(first_run, frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket):
+  year = time.localtime()[0]
+  jd = time.localtime()[7] -nDays
+  startJulians = list(range(first_run,jd+1,frequency))
+  
+  tracking_filenames = rtfd_wrapper([year], startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope)
+
+  tml.trackTasks2(id_list = tracking_filenames)
+  print(tracking_filenames)
+  output_filter_strings = ['*{}_RTFD_Z_{}_*_ay{}*'.format(exportAreaName,'-'.join(indexNames),year),
+                           '*{}_RTFD_TDD_{}_yrs*-{}*'.format(exportAreaName,'-'.join(indexNames),year)]
+  sync_rtfd_outputs(exportBucket,local_output_dir,output_filter_strings,gsutil_path)
+  
+  post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict)
+
+  calc_persistence_wrapper(local_output_dir, exportAreaName,indexNames,year,post_process_dict,persistence_n_periods)
+
+  upload_rtfd_outputs(local_output_dir,deliverable_output_bucket)

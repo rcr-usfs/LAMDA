@@ -1,5 +1,5 @@
 """
-   Copyright 2021 Ian Housman
+   Copyright 2021 Ian Housman, RedCastle Resources Inc.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,10 +21,13 @@ from osgeo import osr, ogr
 from osgeo import gdalconst
 import numpy,os
 ####################################################################################################
+#Function to set the projection of a raster
+#This does not reproject the image, but merely updates the projection in the header
 def set_projection(image,crs):
 	rast = gdal.Open(image, gdal.GA_Update)
 	rast.SetProjection(crs)
 	rast = None
+
 #Set the no data and then update stats
 #If stat_stretch_type isn't set to stdDev, min-max will be used
 def set_no_data(image, no_data_value = -9999, update_stats = True, stat_stretch_type = 'stdDev',stretch_n_stdDev = 4):
@@ -43,6 +46,7 @@ def set_no_data(image, no_data_value = -9999, update_stats = True, stat_stretch_
 		print(('Max:',Max))
 		print(('Mean:',Mean))
 		print(('Std:', Std))
+
 #Function to take an image, apply a stretch to it to convert it to 8 bit, add a color ramp, and names
 def rescale(array,in_min,in_max,out_min = 0,out_max = 254):
 	return ((array.clip(in_min,in_max) - in_min) * (out_max - out_min)) /  (in_max - in_min)
@@ -52,7 +56,7 @@ def stretch_to_8bit(in_image,in_no_data,scale_factor,stretch,palette,out_min = 0
 	#Set up a unique output name
 	out_image = os.path.splitext(in_image)[0] + '_{}_8bit.tif'.format(stretch)
 
-  
+
 	if  not os.path.exists(out_image):
 		print('Compressing {} to 8 bit'.format(in_image))
 
@@ -97,6 +101,65 @@ def stretch_to_8bit(in_image,in_no_data,scale_factor,stretch,palette,out_min = 0
 	names.append('No Data')
 	# print(stretch,names)
 	update_color_table_or_names(out_image,color_table = ct,names = names)
+
+#Compute persistence for RTFD outputs
+def calc_persistence(inputs,output_name,scale_factor,thresh,in_no_data = -32768,out_no_data = 255):
+
+  #Read in rasters 
+  stack = []
+  for in_image in inputs:
+    print('Reading in:',in_image)
+    rast = gdal.Open(in_image)
+    
+
+    band1 = rast.GetRasterBand(1)
+    stack.append(band1.ReadAsArray().astype('float32'))
+
+    band1 = None
+  stack = numpy.array(stack)
+
+  #Set up output mask (union of all masked values)(must have non null values for all n periods for persistence)
+  msk = numpy.max(stack == in_no_data,0)
+
+  #Convert array based on scale factor
+  stack= stack/scale_factor
+
+  #Threshold output and get count and apply mask
+  change = stack < thresh
+  count = numpy.sum(change,0)
+  count[msk] = out_no_data
+
+
+  #Write out output
+  try:
+    driver = gdal.GetDriverByName('GTiff')
+    ds = driver.Create(output_name, count.shape[1], count.shape[0], 1, gdal.GDT_Byte,['COMPRESS=LZW'])
+    ds.SetProjection(rast.GetProjection())
+    ds.SetGeoTransform(rast.GetGeoTransform())
+    ds.GetRasterBand(1).WriteArray(count)
+  except Exception as e:
+    print(e)
+
+  ds = None
+  rast = None
+  stack = None
+  change = None
+  msk = None
+  count = None
+
+  #Update no data and stats
+  set_no_data(output_name, out_no_data,update_stats = True, stat_stretch_type = 'asdf')
+
+  #Update colors and names
+  ct = gdal.ColorTable()
+
+  ct.SetColorEntry(0,(225,225,225))#hex_to_rgb('#888888'))
+  ct.SetColorEntry(1,(255,170,0))#hex_to_rgb('#888800'))
+  ct.SetColorEntry(2,(225,0,0))#hex_to_rgb('#880000'))
+  ct.SetColorEntry(3,(225,0,197))#hex_to_rgb('#880088'))
+
+  names = ['{} Detection(s)'.format(i) for i in range(0,4)]
+  update_color_table_or_names(output_name,color_table = ct,names = names)
 ##############################################################
 def color_dict_maker(gradient):
   ''' Takes in a list of RGB sub-lists and returns dictionary of
@@ -193,8 +256,8 @@ def RGB_to_hex(RGB):
             "{0:x}".format(v) for v in RGB])
 
 ##############################################################
+#Function to get a gdal color table with a provided set of hex colors
 def get_ct(colors):
-  
   palette = [hex_to_rgb(i)+(255,) for i in colors]
   ct = gdal.ColorTable()
   i = 0
@@ -202,12 +265,12 @@ def get_ct(colors):
     ct.SetColorEntry(i,color)
     i+=1
   return ct
+#Function to set the color table and names
 def update_color_table_or_names(image,color_table = '',names = ''):
     rast = gdal.Open(image, gdal.GA_Update)
     b = rast.GetRasterBand(1)
     if color_table != '' and color_table != None:
         print(('Updating color table for:',image))
-        # b.SetRasterColorInterpretation(gdal.GCI_PaletteIndex)
         b.SetRasterColorTable(color_table)
        
     if names != '' and names != None:
@@ -215,6 +278,4 @@ def update_color_table_or_names(image,color_table = '',names = ''):
         b.SetRasterCategoryNames(names)
     rast = None
     b = None
-
-
 ############################################################### 
