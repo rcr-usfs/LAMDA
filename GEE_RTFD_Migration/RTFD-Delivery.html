@@ -27,84 +27,103 @@
 			  body {
 			      position: relative; 
 			  }
+			  .bg-black{
+			  	background-color: #372E2C;
+			  	color:#BFB7B0;
+			  }
+			  .bg-white{
+			  	color: #372E2C;
+			  	background-color:#BFB7B0;
+			  }
+			  .topbar{
+			  	font-size: 1.5em;
+			  }
+			  .rtfd-link{
+			  	color:#00BFA5;
+			  	font-size:0.8em;
+			  }
+			  .rtfd-link:hover{color:#B2ECE4;}
+			  nav{border-bottom: 0.1em solid #00BFA5;}
 			 </style>
 		    
-		    
+		    <script type="text/javascript">
+		    	function addDropdown(id,label){
+		    		$(`#navbar`).append(`<li class="nav-item dropdown" id = "${id}">
+									      <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown">${label}</a>
+									      <div class="dropdown-menu" id = "${id}-menu"></div>
+									    </li>`)
+		    	}
+		    	function addDropdownItem(containerID,id,label1,label2){
+		    		$(`#${containerID}-menu`).append(`<a class="dropdown-item" href="#${containerID}_${id}">${label2}</a>`)
+
+		    		$('#list-container').append(`<div id="${containerID}_${id}" class="container-fluid bg-black" style="padding-top:90px;">
+												  <p>${label1} - ${label2}</p>
+												  <ul id = "${containerID}_${id}" class="list-group list-group-flush bg-black"></ul>
+												</div>`)
+		    	}
+		    	
+		    </script>
     </head>
 
     <body data-spy="scroll" data-target=".navbar" data-offset="50">
-    	<nav class="navbar navbar-expand-sm bg-dark navbar-dark fixed-top">
-    
-	    	<!-- <h1 id = 'loading-label'>Loading available RTFD products</h1>
-	    	<h1 id = 'title-label'>RTFD Products</h1>
-	    	<hr> -->
-	    	<ul class = 'navbar-nav'>
-	    		<li><a href="#raw">RTFD Raw</a></li>
-	    		<li><a href="#eight_bit_list">RTFD 8 Bit</a></li>
-	    		<li><a href="#secpersistence_listtion1">RTFD Persistence</a></li>
-		    	
-	 		</ul>	
+    	
+		<nav  class="navbar navbar-expand-sm bg-black navbar-dark topbar fixed-top">
+		  	<h1 class = 'mr-5'>RTFD Downloads</h1>
+		  <ul  class="navbar-nav" id = 'navbar'></ul>
+		  
+		</nav>
 
-	 		<div id="raw" class="container-fluid bg-info" style="padding-top:70px;padding-bottom:70px">
-  				<h1>RTFD Raw</h1>
-  				<ul id = 'raw_list' class="list-group list-group-flush">RTFD Raw</ul>
-			</div>
-	 		<!-- <ul id = 'raw_list' class="list-group list-group-flush">RTFD Raw</ul>
-	    	<hr>
-	    	<ul id = 'eight_bit_list' class="list-group list-group-flush">RTFD 8 Bit</ul>
-	    	<hr>
-	    	<ul id = 'persistence_list' class="list-group list-group-flush">RTFD Persistence</ul> -->
+		<div id = 'list-container'></div>
+
+
+	 
 
 	    <script type="text/javascript">
 	    	$('#loading-label').show();
 	    	$('#title-label').hide();
 	    	function load_available_rtfd(){
+	    		var setup_dict = {	'persistence':{'dropdown_id':'persistence-dropdown','dropdown_label':'RTFD Persistence','ending':'_persistence.tif'},
+	    							'eight_bit':{'dropdown_id':'eight-bit-dropdown','dropdown_label':'RTFD 8-bit','ending':'_8bit.tif'},
+	    							
+	    							'raw':{'dropdown_id':'raw-dropdown','dropdown_label':'RTFD Raw','ending':'.tif'}}
 
+	    		var study_area_dict = {'CONUS':{'dropdown_id':'conus','dropdown_label':'CONUS','start':'CONUS'},
+	    								'AK':{'dropdown_id':'AK','dropdown_label':'AK','start':'AK'}}
+	    		
 		    	var bucketName = 'rtfd-delivery'
-		    	var raw_tifs = [];
-		    	var eight_bit_tifs = [];
-		    	var persistence_tifs = [];
+		    
 		    	$.ajax({
 			        type: 'GET',
 			        url: `https://storage.googleapis.com/storage/v1/b/${bucketName}/o`,
 			    }).done(function(json){
 			        json = json.items
-			        json.map(function(item){
-			        	// console.log(item)
-			        	if(item.name.endsWith('_persistence.tif')){
-			        		persistence_tifs.push(item)
-			        	}else if(item.name.endsWith('_8bit.tif')){
-			        		eight_bit_tifs.push(item)
-			        	}else if(item.name.endsWith('.tif')){
-			        		raw_tifs.push(item)
-			        	}
-			            // if(item.id.indexOf(id)>-1){
-			            //     var link = document.createElement("a");
-			            //     link.setAttribute("href", item.mediaLink);
-			            //     link.setAttribute("download", item.name);
-			            //     link.style.visibility = 'hidden';
-			            //     document.body.appendChild(link);
-			            //     link.click();
-			            //     sleep(1000);
-			            //     document.body.removeChild(link);
-			            //     sleep(1000);
-			            // }
+			        // console.log(json)
+			        var already_added = [];
+			        Object.keys(setup_dict).map(function(k){
+		    			addDropdown(setup_dict[k].dropdown_id,setup_dict[k].dropdown_label)
+		    		
+		    			var filesT = json.filter(function(f){return f.name.endsWith(setup_dict[k].ending)})
+		    			// console.log(filesT	)
+		    			Object.keys(study_area_dict).map(function(sak){
+		    				addDropdownItem(setup_dict[k].dropdown_id,study_area_dict[sak].dropdown_id,setup_dict[k].dropdown_label,study_area_dict[sak].dropdown_label)
+
+		    				var filesTT = filesT.filter(function(f){return f.name.startsWith(study_area_dict[sak].start)})
+		    				filesTT.map(function(p){
+		    					if(already_added.indexOf(p.mediaLink) == -1){
+		    						$(`#${setup_dict[k].dropdown_id}_${study_area_dict[sak].dropdown_id}`).append(`<li class="list-group-item bg-black"><a class = "rtfd-link" href = '${p.mediaLink}'>${p.name}</a>
+		    						
+		    							</li>`)
+					        		already_added.push(p.mediaLink)
+		    					}
+					        	
+					        })
+		    			})
+		    		})
+			    
 
 			            
 			        })
-			        console.log(persistence_tifs)
-			        persistence_tifs.map(function(p){
-			        	$('#persistence_list').append(`<li class="list-group-item"><a href = '${p.mediaLink}'>${p.name}</a></li>`)
-			        })
-			        eight_bit_tifs.map(function(p){
-			        	$('#eight_bit_list').append(`<li class="list-group-item"><a href = '${p.mediaLink}'>${p.name}</a></li>`)
-			        })
-			        raw_tifs.map(function(p){
-			        	$('#raw_list').append(`<li class="list-group-item"><a href = '${p.mediaLink}'>${p.name}</a></li>`)
-			        })
-			        })
-			    	$('#loading-label').hide();
-			    	$('#title-label').show()
+		
 			    }
 			    $(document).ready(function(){
 			    	load_available_rtfd()

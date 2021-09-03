@@ -28,8 +28,13 @@ analysisYears = [2021]
 
 initialStartJulian = 145
 frequency = 8
-nDays = 16#32 #16 for CONUS, something like 64 or so for HI, 32 or so for AK
-
+# nDays = 16#32 #16 for CONUS, something like 64 or so for HI, 32 or so for AK
+nDaysDict = {
+  'CONUS':16,
+  'AK':32,
+  'AK_main':32,
+  'AK_SE':32
+}
 startJulians = [145]#range(145,185,8)#range(65,321+1,8)#[201,216,231]#range(145,265+1,8)#range(65,321+1,8)#[320,335,350]
 
 #Which indices to use
@@ -129,7 +134,7 @@ transform_dict = {'AK': [240,0,-51375,0,-240,1512585],
                   'MX':[240,0,-2361915.0,0,-240,3177735.0]
                   }
 
-export_area_dict = {'AK':ee.FeatureCollection("TIGER/2018/States").filter(ee.Filter.eq('NAME','Alaska')),
+export_area_dict = {'AK':ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_main').merge(ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_se')),
                     'AK_main': ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_main'),
                     'AK_SE': ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_se'),
                     'HI':ee.FeatureCollection("TIGER/2018/States").filter(ee.Filter.eq('NAME','Hawaii')),
@@ -139,7 +144,7 @@ export_area_dict = {'AK':ee.FeatureCollection("TIGER/2018/States").filter(ee.Fil
 
 #Export area name - provide a descriptive name for the study area
 #Choose CONUS or AK
-exportAreaName = 'AK_main'
+exportAreaName = 'AK'
 
 crs = crs_dict[exportAreaName]
 transform = transform_dict[exportAreaName]#Specify transform if scale is None and snapping to known grid is needed
@@ -198,6 +203,8 @@ post_process_dict = {
 
 #Area to export
 exportArea = export_area_dict[exportAreaName]
+
+nDays = nDaysDict[exportAreaName]
 
 #Whether to add prelim outputs to map to view
 runGEEViz = False	
@@ -260,8 +267,12 @@ tree_mask = ee.Image.cat([lcmsTreeMask,akTreeMask,hiTreeMask,global_tree,hansen]
 # print(tracking_filenames_tifs)
 # sync_rtfd_outputs(exportBucket,local_output_dir,tracking_filenames_tifs)
 
-
-operational_rtfd(initialStartJulian,frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket)
+for exportAreaName in ['CONUS','AK']:
+  crs = crs_dict[exportAreaName]
+  transform = transform_dict[exportAreaName]
+  nDays = nDaysDict[exportAreaName]
+  exportArea = export_area_dict[exportAreaName]
+  operational_rtfd(initialStartJulian,frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket)
 
 # calc_persistence_wrapper(local_output_dir,exportAreaName,indexNames,time.localtime()[0], post_process_dict)
 #After exports are done, pull them down locally 
