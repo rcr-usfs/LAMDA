@@ -19,6 +19,8 @@
 ####################################################################################################
 import json,time,glob,ee,os,subprocess
 from google.cloud import storage
+from multiprocessing import Process
+import multiprocessing
 #Initialize GEE - using service account if possible
 try:
 	key_file = r"Q:\RTFD_gee_method\credentials\gtac-rtfd-b50238099cd8.json"
@@ -365,8 +367,8 @@ def sync_rtfd_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path
 	# o = open(copy_done_file,'w')
 	# o.write(','.join(commands))
 	# o.close()
-def upload_rtfd_outputs(local_folder,gs_bucket, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
-	sync_command = '{} -m cp -n -r {}/* gs://{}'.format(gsutil_path,local_folder,gs_bucket)
+def upload_rtfd_outputs(exportAreaName,local_folder,gs_bucket, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
+	sync_command = '{} -m cp -n -r {}/{}* gs://{}'.format(gsutil_path,local_folder,exportAreaName,gs_bucket)
 	print(sync_command)
 	call = subprocess.Popen(sync_command)
 	
@@ -376,10 +378,10 @@ def upload_rtfd_outputs(local_folder,gs_bucket, gsutil_path = 'C:/Program Files 
 			time.sleep(5)
 ############################################################### 
 #Function to correct projection, set no data, update stats, and stretch to 8 bit
-def post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict):
+def post_process_rtfd_local_outputs(local_output_dir,exportAreaName, crs_dict,post_process_dict):
 
 	#Track files that are already finished
-	done_file = os.path.join(local_output_dir,'.POST_PROCESS_DONE')
+	done_file = os.path.join(local_output_dir,'.{}_POST_PROCESS_DONE'.format(exportAreaName))
 	if os.path.exists(done_file):
 		o = open(done_file)
 		done_files = o.read().split(',')
@@ -391,7 +393,7 @@ def post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict)
 	for k in list(post_process_dict.keys()):
 		
 		#Filter out raw tifs for given key
-		tifs = glob.glob(os.path.join(local_output_dir,'*{}*.tif'.format(k)))
+		tifs = glob.glob(os.path.join(local_output_dir,'{}*{}*.tif'.format(exportAreaName,k)))
 		tifs = [i for i in tifs if i.find('8bit') == -1 and i.find('_persistence') == -1]
 		
 		#Update projection, no data, and stats for each raw output
@@ -400,10 +402,8 @@ def post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict)
 				
 				crs_key = os.path.basename(tif).split('_')[0]
 				crs = crs_dict[crs_key]
-				print('Updating projection:',tif)
-				rpl.set_projection(tif,crs)
-				print('Setting no data and updating stats:',tif)
-				rpl.set_no_data(tif, -32768, update_stats = True, stat_stretch_type = 'stdDev',stretch_n_stdDev = 5)
+				rpl.update_cog(tif,crs,-32768,update_stats = True, stat_stretch_type = 'stdDev',stretch_n_stdDev = 5)
+			
 				done_files.append(tif)
 			
 		
@@ -442,22 +442,43 @@ def calc_persistence_wrapper(local_output_dir, exportAreaName,indexNames,year,po
 				rpl.calc_persistence(tifs_t,output_persist,post_process_dict[k]['scale_factor'],post_process_dict[k]['thresh'])
 			else:
 				print(output_persist,'already exists')
+			# out_jpg = os.path.splitext(output_persist)[0]+ '.jpg'
+			# rpl.translate(output_persist,out_jpg)
+def convert_to_cog(folder):
+	tifs = glob.glob(os.path.join(folder,'*.tif'))
+	tifs = [i for i in tifs if os.path.basename(i).find('_cog.tif') == -1]
+	for tif in tifs:
+		output = os.path.splitext(tif)[0]+'_cog.tif'
+		if not os.path.exists(output):
+			rpl.translate(tif,output,rpl.cogArgs)
+############################################################### 
+def limitProcesses(processLimit):
+  while len(multiprocessing.process.active_children()) > processLimit:
+    print(len(multiprocessing.process.active_children()),':active processes')
+    time.sleep(5)
 ############################################################### 
 def operational_rtfd(first_run, frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket):
   year = time.localtime()[0]
   jd = time.localtime()[7] -nDays
   startJulians = list(range(first_run,jd+1,frequency))
   
+  #Run RTFD GEE portion (get MODIS, cloud cloud shadow bust, make raw Z score and trend products)
   tracking_filenames = rtfd_wrapper([year], startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope)
 
+  #Wait until exports are finished to proced
   tml.trackTasks2(id_list = tracking_filenames)
   print(tracking_filenames)
+
+  #Copy outputs to local folder
   output_filter_strings = ['*{}_RTFD_Z_{}_*_ay{}*'.format(exportAreaName,'-'.join(indexNames),year),
                            '*{}_RTFD_TDD_{}_yrs*-{}*'.format(exportAreaName,'-'.join(indexNames),year)]
   sync_rtfd_outputs(exportBucket,local_output_dir,output_filter_strings,gsutil_path)
   
-  post_process_rtfd_local_outputs(local_output_dir,crs_dict,post_process_dict)
+  #Correct crs, no data, and convert to 8 bit
+  post_process_rtfd_local_outputs(local_output_dir,exportAreaName,crs_dict,post_process_dict)
 
+  #Compute persistence
   calc_persistence_wrapper(local_output_dir, exportAreaName,indexNames,year,post_process_dict,persistence_n_periods)
 
-  upload_rtfd_outputs(local_output_dir,deliverable_output_bucket)
+  #Upload outputs 
+  upload_rtfd_outputs(exportAreaName,local_output_dir,deliverable_output_bucket)

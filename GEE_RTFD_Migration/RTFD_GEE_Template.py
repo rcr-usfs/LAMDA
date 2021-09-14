@@ -157,7 +157,7 @@ exportBucket ='rtfd-2021'
 deliverable_output_bucket = 'rtfd-delivery'
 
 #Location to copy outputs to locally
-local_output_dir = r'Q:\RTFD_gee_method\data7'
+local_output_dir =r'Q:\RTFD_gee_method\Outputs_2021'# r'Q:\RTFD_gee_method\data7'
 
 #Location of gsutil 
 #May need a full path to the location if it's not in the PATH
@@ -266,13 +266,17 @@ tree_mask = ee.Image.cat([lcmsTreeMask,akTreeMask,hiTreeMask,global_tree,hansen]
 # tracking_filenames_tifs = [i+'.tif' for i in tracking_filenames]
 # print(tracking_filenames_tifs)
 # sync_rtfd_outputs(exportBucket,local_output_dir,tracking_filenames_tifs)
+if __name__ == '__main__':
 
-for exportAreaName in ['CONUS','AK']:
-  crs = crs_dict[exportAreaName]
-  transform = transform_dict[exportAreaName]
-  nDays = nDaysDict[exportAreaName]
-  exportArea = export_area_dict[exportAreaName]
-  operational_rtfd(initialStartJulian,frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket)
+  for exportAreaName in ['CONUS','AK']:#,'AK']:
+    crs = crs_dict[exportAreaName]
+    transform = transform_dict[exportAreaName]
+    nDays = nDaysDict[exportAreaName]
+    exportArea = export_area_dict[exportAreaName]
+    p = Process(target=operational_rtfd, args=(initialStartJulian,frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket,))
+    p.start()
+  limitProcesses(1)
+
 
 # calc_persistence_wrapper(local_output_dir,exportAreaName,indexNames,time.localtime()[0], post_process_dict)
 #After exports are done, pull them down locally 

@@ -21,13 +21,38 @@ from osgeo import osr, ogr
 from osgeo import gdalconst
 import numpy,os
 ####################################################################################################
+#Method for updating projection, no data, and stats of image and ensuring output is a valid COGtif
+#Cog methods adapted from: https://geoexamples.com/other/2019/02/08/cog-tutorial.html/
+def update_cog(image,crs,no_data_value = -9999, update_stats = True, stat_stretch_type = 'stdDev',stretch_n_stdDev = 4):
+	print('Updating crs and no data and preserving COG layout for: ',image)
+	cog_image = '{}_cog{}'.format(os.path.splitext(image)[0],os.path.splitext(image)[1])
+
+	#Update projection, no data, and stats
+	set_projection(image,crs)
+	set_no_data(image, no_data_value, update_stats, stat_stretch_type,stretch_n_stdDev )
+
+	#Set up COGtif bits that likely got broken when updating the projection etc
+	rast = gdal.Open(image, gdal.GA_Update)
+	rast.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64])
+	driver = gdal.GetDriverByName('GTiff')
+	ds2 = driver.CreateCopy(cog_image, rast,
+									options=["COPY_SRC_OVERVIEWS=YES",
+									"TILED=YES",
+									"COMPRESS=DEFLATE"])
+	rast = None
+	ds2 = None
+
+	#Remove the old file and rename the temp cog file
+	os.remove(image)
+	os.rename(cog_image,image)
+####################################################################################################
 #Function to set the projection of a raster
 #This does not reproject the image, but merely updates the projection in the header
 def set_projection(image,crs):
 	rast = gdal.Open(image, gdal.GA_Update)
 	rast.SetProjection(crs)
 	rast = None
-
+####################################################################################################
 #Set the no data and then update stats
 #If stat_stretch_type isn't set to stdDev, min-max will be used
 def set_no_data(image, no_data_value = -9999, update_stats = True, stat_stretch_type = 'stdDev',stretch_n_stdDev = 4):
@@ -46,12 +71,35 @@ def set_no_data(image, no_data_value = -9999, update_stats = True, stat_stretch_
 		print(('Max:',Max))
 		print(('Mean:',Mean))
 		print(('Std:', Std))
-
+	rast = None
+	b = None
+####################################################################################################
 #Function to take an image, apply a stretch to it to convert it to 8 bit, add a color ramp, and names
 def rescale(array,in_min,in_max,out_min = 0,out_max = 254):
 	return ((array.clip(in_min,in_max) - in_min) * (out_max - out_min)) /  (in_max - in_min)
+format_dict =  {'.tif': 'GTiff', '.img' : 'HFA', '.jpg' : 'JPEG', '.gif' : 'GIF', '.grid' : 'AAIGrid', '.hdr': 'envi', '': 'envi','.ntf': 'NITF','.vrt':'VRT'}
+####################################################################################################
+#Options found at: https://gdal.org/python/osgeo.gdal-module.html#TranslateOptions
+cogArgs = {'format':'COG','creationOptions':['COMPRESS=DEFLATE']}
+def translate(input,output,kwargs = {
+    'rgbExpand':'rgb',
+    'widthPct':6.25,
+    'heightPct':6.25
+	}):
+	
+	if 'format' not in kwargs.keys():
+		kwargs['format'] = format_dict[os.path.splitext(output)[1]]
+	
 
+	print('Running gdal_translate:',output)
+	ds = gdal.Translate(output, input, **kwargs)
+	# do something with ds if you need
+	ds = None # close and save ds
+
+####################################################################################################
 #Function to take raw image and rescale it to 8 bit, set no data, update stats, and set a colormap and names
+#This method ensures output is a valid COGtif
+#Cog methods adapted from: https://geoexamples.com/other/2019/02/08/cog-tutorial.html/
 def stretch_to_8bit(in_image,in_no_data,scale_factor,stretch,palette,out_min = 0,out_max = 254,out_no_data = 255):
 	#Set up a unique output name
 	out_image = os.path.splitext(in_image)[0] + '_{}_8bit.tif'.format(stretch)
@@ -72,17 +120,43 @@ def stretch_to_8bit(in_image,in_no_data,scale_factor,stretch,palette,out_min = 0
 		
 		#Apply stretch
 		out = rescale(band1_pixels/scale_factor,-stretch,stretch,out_min,out_max)
-		# out = (band1_pixels/scale_factor).clip(-stretch,stretch)
-		# out = (out + stretch)*stretch_mult
+
+		#Burn in mask values
 		out[band1_pixels == in_no_data] = out_no_data
 
-		#Write out output
+		#Write out output as a cogTif
 		try:
-			driver = gdal.GetDriverByName('GTiff')
-			ds = driver.Create(out_image, width, height, 1, gdal.GDT_Byte,['COMPRESS=LZW'])
+			driver = gdal.GetDriverByName('MEM')
+			ds = driver.Create('', width, height, 1, gdal.GDT_Byte)
 			ds.SetProjection(rast.GetProjection())
 			ds.SetGeoTransform(rast.GetGeoTransform())
-			ds.GetRasterBand(1).WriteArray(out)
+		
+
+			b = ds.GetRasterBand(1)
+			b.WriteArray(out)
+			b.SetNoDataValue(out_no_data)
+			# if update_stats:
+			# 	Min,Max,Mean,Std = b.ComputeStatistics(0)
+			# 	if stat_stretch_type == 'stdDev':
+			# 		Min = Mean - (stretch_n_stdDev*Std)
+			# 		Max = Mean + (stretch_n_stdDev*Std)
+			b.SetStatistics(out_min,out_max,125,20)
+
+
+			ct = get_poly_gradient_ct(palette, out_min,out_max)
+			names = ["{:.4f}".format(((i/(out_max-out_min))*(stretch+stretch))-stretch) for i in range(out_min,out_max+1)]
+			names.append('No Data')
+			b.SetRasterColorTable(ct)
+			b.SetRasterCategoryNames(names)
+
+			ds.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64])
+
+			driver = gdal.GetDriverByName('GTiff')
+			ds2 = driver.CreateCopy(out_image, ds,
+									options=["COPY_SRC_OVERVIEWS=YES",
+									"TILED=YES",
+									"COMPRESS=DEFLATE"])
+	
 		except Exception as e:
 			print(e)
 		
@@ -90,17 +164,24 @@ def stretch_to_8bit(in_image,in_no_data,scale_factor,stretch,palette,out_min = 0
 		band1_pixels = None
 		out = None
 		ds = None
+		ds2 = None
+		b = None
 
-		#Update no data and stats
-		set_no_data(out_image, out_no_data,update_stats = True, stat_stretch_type = 'asdf')
-		#Update color table and names of 8 bit image
-		ct = get_poly_gradient_ct(palette, out_min,out_max)
-		names = ["{:.4f}".format(((i/(out_max-out_min))*(stretch+stretch))-stretch) for i in range(out_min,out_max+1)]
-		names.append('No Data')
-		# print(stretch,names)
-		update_color_table_or_names(out_image,color_table = ct,names = names)
+		# #Update no data and stats
+		# set_no_data(out_image, out_no_data,update_stats = True, stat_stretch_type = 'asdf')
+		# #Update color table and names of 8 bit image
+		# ct = get_poly_gradient_ct(palette, out_min,out_max)
+		# names = ["{:.4f}".format(((i/(out_max-out_min))*(stretch+stretch))-stretch) for i in range(out_min,out_max+1)]
+		# names.append('No Data')
+		# # print(stretch,names)
+		# update_color_table_or_names(out_image,color_table = ct,names = names)
 
+		out_jpg = os.path.splitext(out_image)[0]+ '.jpg'
+		translate(out_image,out_jpg)
+####################################################################################################
 #Compute persistence for RTFD outputs
+#This method ensures output is a valid COGtif
+#Cog methods adapted from: https://geoexamples.com/other/2019/02/08/cog-tutorial.html/
 def calc_persistence(inputs,output_name,scale_factor,thresh,in_no_data = -32768,out_no_data = 255):
 
 	#Read in rasters 
@@ -128,36 +209,73 @@ def calc_persistence(inputs,output_name,scale_factor,thresh,in_no_data = -32768,
 	count[msk] = out_no_data
 
 
-	#Write out output
+	#Write out output as a COGtif
 	try:
-		driver = gdal.GetDriverByName('GTiff')
-		ds = driver.Create(output_name, count.shape[1], count.shape[0], 1, gdal.GDT_Byte,['COMPRESS=LZW'])
+		
+		driver = gdal.GetDriverByName('MEM')
+		ds = driver.Create('', count.shape[1], count.shape[0], 1, gdal.GDT_Byte)
 		ds.SetProjection(rast.GetProjection())
 		ds.SetGeoTransform(rast.GetGeoTransform())
-		ds.GetRasterBand(1).WriteArray(count)
+		
+
+		b = ds.GetRasterBand(1)
+		b.WriteArray(count)
+		b.SetNoDataValue(out_no_data)
+		# if update_stats:
+		# 	Min,Max,Mean,Std = b.ComputeStatistics(0)
+		# 	if stat_stretch_type == 'stdDev':
+		# 		Min = Mean - (stretch_n_stdDev*Std)
+		# 		Max = Mean + (stretch_n_stdDev*Std)
+		# b.SetStatistics(out_min,out_max,125,20)
+
+
+		#Update colors and names
+		ct = gdal.ColorTable()
+
+		ct.SetColorEntry(0,(225,225,225))#hex_to_rgb('#888888'))
+		ct.SetColorEntry(1,(255,170,0))#hex_to_rgb('#888800'))
+		ct.SetColorEntry(2,(225,0,0))#hex_to_rgb('#880000'))
+		ct.SetColorEntry(3,(225,0,197))#hex_to_rgb('#880088'))
+
+		names = ['{} Detection(s)'.format(i) for i in range(0,4)]
+		b.SetRasterColorTable(ct)
+		b.SetRasterCategoryNames(names)
+
+		ds.BuildOverviews("NEAREST", [2, 4, 8, 16, 32, 64])
+
+		driver = gdal.GetDriverByName('GTiff')
+		ds2 = driver.CreateCopy(output_name, ds,
+									options=["COPY_SRC_OVERVIEWS=YES",
+									"TILED=YES",
+									"COMPRESS=DEFLATE"])
+	
 	except Exception as e:
 		print(e)
-
-	ds = None
+		
 	rast = None
-	stack = None
-	change = None
-	msk = None
 	count = None
+	out = None
+	ds = None
+	ds2 = None
+	b = None
 
-	#Update no data and stats
-	set_no_data(output_name, out_no_data,update_stats = True, stat_stretch_type = 'asdf')
 
-	#Update colors and names
-	ct = gdal.ColorTable()
+	# #Update no data and stats
+	# set_no_data(output_name, out_no_data,update_stats = True, stat_stretch_type = 'asdf')
 
-	ct.SetColorEntry(0,(225,225,225))#hex_to_rgb('#888888'))
-	ct.SetColorEntry(1,(255,170,0))#hex_to_rgb('#888800'))
-	ct.SetColorEntry(2,(225,0,0))#hex_to_rgb('#880000'))
-	ct.SetColorEntry(3,(225,0,197))#hex_to_rgb('#880088'))
+	# #Update colors and names
+	# ct = gdal.ColorTable()
 
-	names = ['{} Detection(s)'.format(i) for i in range(0,4)]
-	update_color_table_or_names(output_name,color_table = ct,names = names)
+	# ct.SetColorEntry(0,(225,225,225))#hex_to_rgb('#888888'))
+	# ct.SetColorEntry(1,(255,170,0))#hex_to_rgb('#888800'))
+	# ct.SetColorEntry(2,(225,0,0))#hex_to_rgb('#880000'))
+	# ct.SetColorEntry(3,(225,0,197))#hex_to_rgb('#880088'))
+
+	# names = ['{} Detection(s)'.format(i) for i in range(0,4)]
+	# update_color_table_or_names(output_name,color_table = ct,names = names)
+
+	out_jpg = os.path.splitext(output_name)[0]+ '.jpg'
+	translate(output_name,out_jpg)
 ##############################################################
 def color_dict_maker(gradient):
 	''' Takes in a list of RGB sub-lists and returns dictionary of
