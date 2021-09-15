@@ -76,15 +76,18 @@
     <body data-spy="scroll" data-target=".navbar" data-offset="50">
     	
 		<nav  id = 'top-nav' class="navbar navbar-expand-sm bg-black navbar-dark topbar fixed-top">
-		  	<h1 class = 'mr-5'>RTFD Downloads</h1>
-		  <ul  class="navbar-nav" id = 'navbar'></ul>
+			<div class="container-fluid">
+		  		<h1 class = 'mr-5'>RTFD Downloads</h1>
+
+		  		<ul  class="navbar-nav" id = 'navbar'></ul>
+		  	</div>
 		  
 		</nav>
 
 		
-		<div id = 'list-container'></div>
+		<div  class = 'container-fluid px-0' id = 'list-container'></div>
 
-		<div  class = 'bg-black'>
+		<div  class = 'bg-black container-fluid'>
 			
 			<iframe  id = 'viewer-frame' src="./output-viewer/index.html" title="LCMS data viewer"></iframe>
 		</div>
@@ -97,7 +100,7 @@
 	    	function load_available_rtfd(){
 	    		var topNavHeight = $('#top-nav').innerHeight()
 	    		$('#viewer-frame').height(window.innerHeight-(topNavHeight*1.2));
-	    		$('#viewer-frame').width(window.innerWidth-25);
+	    		$('#viewer-frame').width(window.innerWidth-50);
 	    		// $('#viewer-frame').css('padding-top', `${topNavHeight}px`);
 	    		var setup_dict = {	'persistence':{'dropdown_id':'persistence-dropdown','dropdown_label':'RTFD Persistence','ending':'_persistence.tif'},
 	    							'eight_bit':{'dropdown_id':'eight-bit-dropdown','dropdown_label':'RTFD 8-bit','ending':'_8bit.tif'},
@@ -147,14 +150,21 @@
 
 			            $(`#navbar`).append(`<li class="nav-item " id = "viewer-nav">
 									      <a class="nav-link" href="#viewer-frame">RTFD Viewer</a>
-									     
 									    </li>`)
+
+
 			        })
 		
 			    }
 			    $(document).ready(function(){
 			    	load_available_rtfd()
 			    })
+			   window.addEventListener('resize',function(){
+			    	console.log('resized')
+			        var topNavHeight = $('#top-nav').innerHeight()
+	    			$('#viewer-frame').height(window.innerHeight-(topNavHeight*1.2));
+	    			$('#viewer-frame').width(window.innerWidth-50);
+			            })
 
 		    </script>
     	
