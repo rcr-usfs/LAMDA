@@ -48,7 +48,7 @@
 			  }
 			  nav{border-bottom: 0.1em solid #00BFA5;}
 
-			   img:hover {
+			   img:active {
 				  height: 500px;
 				   transition-duration: 0.5s;
 				}
@@ -83,13 +83,17 @@
 
 		<div id = 'list-container'></div>
 
-
+		<iframe src="./output-viewer/index.html" title="LCMS data viewer"></iframe>
 	 
 
 	    <script type="text/javascript">
 	    	$('#loading-label').show();
 	    	$('#title-label').hide();
 	    	function load_available_rtfd(){
+
+	    		$('iframe').height(window.innerHeight-50);
+	    		$('iframe').width(window.innerWidth-25);
+
 	    		var setup_dict = {	'persistence':{'dropdown_id':'persistence-dropdown','dropdown_label':'RTFD Persistence','ending':'_persistence.tif'},
 	    							'eight_bit':{'dropdown_id':'eight-bit-dropdown','dropdown_label':'RTFD 8-bit','ending':'_8bit.tif'},
 	    							
@@ -125,7 +129,7 @@
 		    							</li>`)
 		    						if(k!== 'raw'){
 		    							console.log(k + ' '+nm)
-		    							$(`#list-entry-${id}`).append(`<img   class = 'pl-5' height=50 src="https://storage.googleapis.com/rtfd-delivery/${nm}.jpg"></img>`)
+		    							$(`#list-entry-${id}`).append(`<img   title = 'Click this image and hold to make bigger' class = 'pl-5' height=50 src="https://storage.googleapis.com/rtfd-delivery/${nm}.jpg"></img>`)
 		    							id++;
 		    						}
 					        		already_added.push(p.mediaLink)
