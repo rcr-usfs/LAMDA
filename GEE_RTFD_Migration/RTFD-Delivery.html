@@ -75,25 +75,30 @@
 
     <body data-spy="scroll" data-target=".navbar" data-offset="50">
     	
-		<nav  class="navbar navbar-expand-sm bg-black navbar-dark topbar fixed-top">
+		<nav  id = 'top-nav' class="navbar navbar-expand-sm bg-black navbar-dark topbar fixed-top">
 		  	<h1 class = 'mr-5'>RTFD Downloads</h1>
 		  <ul  class="navbar-nav" id = 'navbar'></ul>
 		  
 		</nav>
 
+		
 		<div id = 'list-container'></div>
 
-		<iframe src="./output-viewer/index.html" title="LCMS data viewer"></iframe>
+		<div  class = 'bg-black'>
+			
+			<iframe  id = 'viewer-frame' src="./output-viewer/index.html" title="LCMS data viewer"></iframe>
+		</div>
+		
 	 
 
 	    <script type="text/javascript">
 	    	$('#loading-label').show();
 	    	$('#title-label').hide();
 	    	function load_available_rtfd(){
-
-	    		$('iframe').height(window.innerHeight-50);
-	    		$('iframe').width(window.innerWidth-25);
-
+	    		var topNavHeight = $('#top-nav').innerHeight()
+	    		$('#viewer-frame').height(window.innerHeight-(topNavHeight*1.2));
+	    		$('#viewer-frame').width(window.innerWidth-25);
+	    		// $('#viewer-frame').css('padding-top', `${topNavHeight}px`);
 	    		var setup_dict = {	'persistence':{'dropdown_id':'persistence-dropdown','dropdown_label':'RTFD Persistence','ending':'_persistence.tif'},
 	    							'eight_bit':{'dropdown_id':'eight-bit-dropdown','dropdown_label':'RTFD 8-bit','ending':'_8bit.tif'},
 	    							
@@ -140,7 +145,10 @@
 		    		})
 			    
 
-			            
+			            $(`#navbar`).append(`<li class="nav-item " id = "viewer-nav">
+									      <a class="nav-link" href="#viewer-frame">RTFD Viewer</a>
+									     
+									    </li>`)
 			        })
 		
 			    }

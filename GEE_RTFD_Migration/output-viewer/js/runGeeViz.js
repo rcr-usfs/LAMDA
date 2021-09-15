@@ -48,7 +48,7 @@ function runGeeViz(){
 			        		})
 			        		eight_bit_c = ee.ImageCollection.fromImages(eight_bit_c)
 			        		
-						    Map2.addTimeLapse(eight_bit_c, eight_bit_viz,`${study_area} ${output_type} 8 bit timelapse`)
+						    Map2.addTimeLapse(eight_bit_c, eight_bit_viz,`${study_area} ${output_type} 8 bit`)
 						    
 						    var persistence_c = persistence.map(function(t){
 			        			var img = ee.Image.loadGeoTIFF(`gs://${bucketName}/${t}`)
@@ -57,7 +57,7 @@ function runGeeViz(){
 			        		})
 			        		persistence_c = ee.ImageCollection.fromImages(persistence_c)
 			        		
-						    Map2.addTimeLapse(persistence_c,persistence_viz,`${study_area} ${output_type} persistence timelapse`)
+						    Map2.addTimeLapse(persistence_c,persistence_viz,`${study_area} ${output_type} persistence`)
 						    
 			        	})
 			        })
