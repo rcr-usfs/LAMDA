@@ -13,12 +13,14 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-#Template script to run the Real Time Forest Disturbance (RTFD) Mapper in Google Earth Engine
-#This method is a pixel-wise adaptation of the original RTFD algorithms
-#Intended to work within the geeViz package with the RTFD_GEE_Lib script
+#Template script to run the LAndscape Monitoring and Detection Application (LAMDA) in Google Earth Engine
+#This method is a pixel-wise adaptation of the original RTFD (Real Time Forest Disturbance) algorithms
+#Intended to work within the geeViz package with the LAMDA_Lib script
 ####################################################################################################
 ####################################################################################################
-from RTFD_GEE_Lib import *
+import LAMDA_Lib as ll
+ee = ll.ee
+Map = ll.Map
 ####################################################################################################
 #Specify user parameters
 

@@ -1,1 +1,0 @@
-gsutil -m rm gs://rtfd-exports-usda/*

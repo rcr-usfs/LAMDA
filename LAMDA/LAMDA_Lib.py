@@ -13,8 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-#Script to run the Real Time Forest Disturbance (RTFD) Mapper in Google Earth Engine
-#This method is a pixel-wise adaptation of the original RTFD algorithms
+#Script to run the LAndscape Monitoring and Detection Application (LAMDA) in Google Earth Engine
+#This method is a pixel-wise adaptation of the original RTFD (Real Time Forest Disturbance) algorithms
 #Intended to work within the geeViz package
 ####################################################################################################
 import json,time,glob,ee,os,subprocess
@@ -23,7 +23,7 @@ from multiprocessing import Process
 import multiprocessing
 #Initialize GEE - using service account if possible
 try:
-	key_file = r"Q:\RTFD_gee_method\credentials\gtac-rtfd-b50238099cd8.json"
+	key_file = r"Q:\LAMDA_workspace\credentials\gtac-rtfd-b50238099cd8.json"
 	ee.Initialize(ee.ServiceAccountCredentials(json.load(open(key_file)), key_file))
 	print('Successfully initialized using service account GEE credentials')
 except Exception as e:
@@ -39,7 +39,7 @@ Map.clearMap()
 import raster_processing_lib as rpl
 
 #Set environment variable for GCS use
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r"Q:\RTFD_gee_method\credentials\gtac-rtfd-b50238099cd8.json"
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_file
 tracking_filenames = []
 ####################################################################################################
 #Checks to see if a cloud storage object exists
