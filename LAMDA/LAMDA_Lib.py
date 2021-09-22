@@ -42,6 +42,25 @@ import raster_processing_lib as rpl
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_file
 tracking_filenames = []
 ####################################################################################################
+def rename_blobs(bucket_name,old_name,new_name):
+	"""Renames a group of blobs."""
+	#storage client instance
+	storage_client = storage.Client()
+
+	#get bucket by name
+	bucket = storage_client.get_bucket(bucket_name)
+
+	#list files stored in bucket
+	all_blobs = bucket.list_blobs()
+
+	#Renaming all files to lowercase:
+	for blob in all_blobs:
+		on = str(blob.name)
+		nn = on.replace(old_name,new_name)
+		new_blob = bucket.rename_blob(blob, new_name= nn)
+		print('Blob {} has been renamed to {}'.format( on,nn))
+
+# rename_blobs("lamda-raw-outputs",'_RTFD_','_LAMDA_')
 #Checks to see if a cloud storage object exists
 def gcs_exists(bucket,filename):
   storage_client = storage.Client()
@@ -85,7 +104,7 @@ def computeCloudScoreTDOMStats(startYear,endYear,startJulian,endJulian,exportAre
 	
 ####################################################################################################
 #Function to get a z score from a given set of imates and dates
-def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3,baselineGap = 1,zReducer = ee.Reducer.percentile([70]),zThresh = -3,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False):
+def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3,baselineGap = 1,zReducer = ee.Reducer.percentile([70]),zThresh = -3,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'lamda-raw-outputs',exportAreaName = '',exportArea = None,exportRawZ = False):
 	args = gv.formatArgs(locals())
 	if 'args' in args.keys():
 		del args['args']
@@ -126,7 +145,7 @@ def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3
 
 	#Export z score if chosen
 	if exportRawZ:
-		rawZOutputName = '{}_RTFD_Z_{}_bl{}-{}_ay{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),baselineStartYear,baselineEndYear,analysisYear,startJulian,endJulian)
+		rawZOutputName = '{}_LAMDA_Z_{}_bl{}-{}_ay{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),baselineStartYear,baselineEndYear,analysisYear,startJulian,endJulian)
 		tracking_filenames.append(rawZOutputName)
 		
 		forExport = analysisZ.multiply(1000).clamp(-32767,32767).int16()#.clamp(-10,10).add(10).multiply(10).byte()#.clamp(-32767,32767).int16()
@@ -141,7 +160,7 @@ def getZ(images,indexNames,startJulian,endJulian,analysisYear,baselineLength = 3
 
 ####################################################################################################
 #Function to get trend of given images
-def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,annualReducer = ee.Reducer.percentile([50]),slopeThresh = -0.05,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawSlope = False):
+def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,annualReducer = ee.Reducer.percentile([50]),slopeThresh = -0.05,crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'lamda-raw-outputs',exportAreaName = '',exportArea = None,exportRawSlope = False):
 	
 	#Find years for specified epoch
 	epochStartYear = analysisYear-epochLength+1
@@ -183,7 +202,7 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 
 	#Export slope if chosen
 	if exportRawSlope:
-		rawSlopeOutputName = '{}_RTFD_TDD_{}_yrs{}-{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),years[0],years[-1],startJulian,endJulian)
+		rawSlopeOutputName = '{}_LAMDA_TDD_{}_yrs{}-{}_jd{}-{}'.format(exportAreaName,'-'.join(indexNames),years[0],years[-1],startJulian,endJulian)
 		tracking_filenames.append(rawSlopeOutputName)
 		
 		forExport = slope.multiply(10000).clamp(-32767,32767).int16()#.clamp(-0.2,0.2).add(0.2).multiply(500).byte()#.multiply(100000).clamp(-32767,32767).int16()
@@ -200,11 +219,11 @@ def getTrend(images,indexNames,startJulian,endJulian,analysisYear,epochLength,an
 
 
 ####################################################################################################
-#Wrapper for rtfd to run z-score and tdd methods
-def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, tddEpochLength = 5, baselineGap = 1, indexNames = ['NBR'],zThresh = -2.5,slopeThresh = -0.05, zReducer = ee.Reducer.percentile([60]),tddAnnualReducer = ee.Reducer.percentile([50]),\
+#Wrapper for LAMDA to run z-score and tdd methods
+def lamda_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, tddEpochLength = 5, baselineGap = 1, indexNames = ['NBR'],zThresh = -2.5,slopeThresh = -0.05, zReducer = ee.Reducer.percentile([60]),tddAnnualReducer = ee.Reducer.percentile([50]),\
 	zenithThresh = 90,addLookAngleBands = True,applyCloudScore = True, applyTDOM = True, cloudScoreThresh = 20,performCloudScoreOffset = True,cloudScorePctl = 10, zScoreThresh = -1, shadowSumThresh = 0.35, contractPixels = 0,dilatePixels = 2.5,resampleMethod = 'bicubic',preComputedCloudScoreOffset = None,preComputedTDOMIRMean = None,preComputedTDOMIRStdDev = None,\
 	treeMask = None,
-	crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'rtfd-scratch',exportAreaName = '',exportArea = None,exportRawZ = False,exportRawSlope = False):
+	crs = 'EPSG:5070',transform = [240,0,-2361915.0,0,-240,3177735.0],scale = None,exportBucket = 'lamda-raw-outputs',exportAreaName = '',exportArea = None,exportRawZ = False,exportRawSlope = False):
 
 	#Set up union of all years needed
 	startYear = min(analysisYears) - max([tddEpochLength,zBaselineLength]) - baselineGap
@@ -264,7 +283,7 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 		for startJulian in startJulians:
 			endJulian = startJulian + nDays-1
 			full_year_list.append(round(analysisYear+(startJulian/365.25),2))
-			print('Running RTFD over: ',analysisYear,startJulian,endJulian)
+			print('Running LAMDA over: ',analysisYear,startJulian,endJulian)
 			z = getZ(modisImages,indexNames,startJulian,endJulian,analysisYear,zBaselineLength,baselineGap,zReducer,zThresh,crs,transform,scale,exportBucket,exportAreaName,exportArea,exportRawZ)
 
 			trend = getTrend(modisImages,indexNames,startJulian,endJulian,analysisYear,tddEpochLength,tddAnnualReducer,slopeThresh,crs,transform,scale,exportBucket,exportAreaName,exportArea,exportRawSlope)
@@ -302,29 +321,8 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 	#Export outputs if chosen
 	strAnalysisYears = [str(i) for i in analysisYears]
 	strStartJulians = [str(i) for i in startJulians]
-	# if exportZOutputs:
-	# 	zOutputName = '{}_RTFD_Z_{}_zThrsh{}_blLen{}_blGap{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(zThresh).replace('.',''),zBaselineLength,baselineGap,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
-	# 	print(zOutputName)
-	# 	countForExport = z_collection.select([1]).count().clamp(0,254).byte()
-	# 	exportToCloudStorageWrapper(countForExport,'{}_count'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
-
-	# 	minZForExport = z_collection.select([0]).min().multiply(1000).clamp(-32767,32767).int16()
-	# 	exportToCloudStorageWrapper(minZForExport,'{}_minZ'.format(zOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
-	# if exportTDDOutputs:
-	# 	tddOutputName = '{}_RTFD_TDD_{}_slpThrsh{}_epLen{}_ays{}_jds{}_nDays{}'.format(exportAreaName,'-'.join(indexNames),str(slopeThresh).replace('.',''),tddEpochLength,'-'.join(strAnalysisYears),'-'.join(strStartJulians),nDays)
-	# 	print(tddOutputName)
-	# 	countForExport = tdd_collection.select([1]).count().clamp(0,254).byte()
-	# 	exportToCloudStorageWrapper(countForExport,'{}_count'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = 255)
-
-	# 	minSlpForExport = tdd_collection.select([0]).min().multiply(100000).clamp(-32767,32767).int16()
-	# 	exportToCloudStorageWrapper(minSlpForExport,'{}_minSlp'.format(tddOutputName),exportBucket,exportArea,scale,crs,transform,outputNoData = -32768)
-		
 
 
-	#Visualize legacy RTFD outputs
-	# i1 = ee.ImageCollection('projects/gtac-rtfd/assets/GEE-Migration/testImages').mosaic()
-	# i1 = i1.selfMask()
-	# Map.addLayer(i1,{'min':75,'max':150,'palette':'F00,888,00F'},'Original RTFD 185-200',False)
 
 	if exportRawZ or exportRawSlope:
 		Map.addLayer(exportArea,{},'Export Area')
@@ -335,7 +333,7 @@ def rtfd_wrapper(analysisYears, startJulians, nDays = 16, zBaselineLength = 3, t
 #Functions to process outputs locally
 
 #Function to bring outputs from GCS to local folder
-def sync_rtfd_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
+def sync_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
 
 	if not os.path.exists(output_folder):os.makedirs(output_folder)
 	call = None
@@ -367,7 +365,7 @@ def sync_rtfd_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path
 	# o = open(copy_done_file,'w')
 	# o.write(','.join(commands))
 	# o.close()
-def upload_rtfd_outputs(exportAreaName,local_folder,gs_bucket, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
+def upload_outputs(exportAreaName,local_folder,gs_bucket, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
 	sync_command = '{} -m cp -n -r {}/{}* gs://{}'.format(gsutil_path,local_folder,exportAreaName,gs_bucket)
 	print(sync_command)
 	call = subprocess.Popen(sync_command)
@@ -378,7 +376,7 @@ def upload_rtfd_outputs(exportAreaName,local_folder,gs_bucket, gsutil_path = 'C:
 			time.sleep(5)
 ############################################################### 
 #Function to correct projection, set no data, update stats, and stretch to 8 bit
-def post_process_rtfd_local_outputs(local_output_dir,exportAreaName, crs_dict,post_process_dict):
+def post_process_local_outputs(local_output_dir,exportAreaName, crs_dict,post_process_dict):
 
 	#Track files that are already finished
 	done_file = os.path.join(local_output_dir,'.{}_POST_PROCESS_DONE'.format(exportAreaName))
@@ -456,29 +454,38 @@ def limitProcesses(processLimit):
   while len(multiprocessing.process.active_children()) > processLimit:
     print(len(multiprocessing.process.active_children()),':active processes')
     time.sleep(5)
+
+
+#Function to get the most recent date of available MODIS to run LAMDA up until that date
+def get_most_recent_MODIS_date(collection = "MODIS/006/MYD09GQ"):
+	t = time.localtime()
+	d = ee.Date.fromYMD(t[0],t[1],t[2])
+	c = ee.ImageCollection(collection).filterDate(d.advance(-2,'month'),d).sort('system:time_start',False)
+	return ee.Date(c.first().get('system:time_start')).format('YYYY-DD').getInfo()
 ############################################################### 
-def operational_rtfd(first_run, frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket):
-  year = time.localtime()[0]
-  jd = time.localtime()[7] -nDays
+def operational_lamda(first_run, frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket):
+  most_recent_modis = get_most_recent_MODIS_date()
+  year = int(most_recent_modis.split('-')[0]) #time.localtime()[0]
+  jd = int(most_recent_modis.split('-')[1])-nDays #time.localtime()[7] 
   startJulians = list(range(first_run,jd+1,frequency))
-  
-  #Run RTFD GEE portion (get MODIS, cloud cloud shadow bust, make raw Z score and trend products)
-  tracking_filenames = rtfd_wrapper([year], startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope)
+ 
+  #Run LAMDA GEE portion (get MODIS, cloud cloud shadow bust, make raw Z score and trend products)
+  tracking_filenames = lamda_wrapper([year], startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope)
 
   #Wait until exports are finished to proced
   tml.trackTasks2(id_list = tracking_filenames)
-  print(tracking_filenames)
+  print(tracking_filenames, 'finished exporting')
 
   #Copy outputs to local folder
-  output_filter_strings = ['*{}_RTFD_Z_{}_*_ay{}*'.format(exportAreaName,'-'.join(indexNames),year),
-                           '*{}_RTFD_TDD_{}_yrs*-{}*'.format(exportAreaName,'-'.join(indexNames),year)]
-  sync_rtfd_outputs(exportBucket,local_output_dir,output_filter_strings,gsutil_path)
+  output_filter_strings = ['*{}_LAMDA_Z_{}_*_ay{}*'.format(exportAreaName,'-'.join(indexNames),year),
+                           '*{}_LAMDA_TDD_{}_yrs*-{}*'.format(exportAreaName,'-'.join(indexNames),year)]
+  sync_outputs(exportBucket,local_output_dir,output_filter_strings,gsutil_path)
   
   #Correct crs, no data, and convert to 8 bit
-  post_process_rtfd_local_outputs(local_output_dir,exportAreaName,crs_dict,post_process_dict)
+  post_process_local_outputs(local_output_dir,exportAreaName,crs_dict,post_process_dict)
 
   #Compute persistence
   calc_persistence_wrapper(local_output_dir, exportAreaName,indexNames,year,post_process_dict,persistence_n_periods)
 
-  #Upload outputs 
-  upload_rtfd_outputs(exportAreaName,local_output_dir,deliverable_output_bucket)
+  # #Upload outputs 
+  upload_outputs(exportAreaName,local_output_dir,deliverable_output_bucket)

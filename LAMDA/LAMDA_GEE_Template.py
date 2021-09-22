@@ -24,8 +24,8 @@ Map = ll.Map
 ####################################################################################################
 #Specify user parameters
 
-#Parameters used for both RTFD Z-Score and TDD methods
-#Specify years to run RTFD Z-Score and TDD methods
+#Parameters used for both LAMDA Z-Score and TDD methods
+#Specify years to run LAMDA Z-Score and TDD methods
 analysisYears = [2021]
 
 initialStartJulian = 145
@@ -83,7 +83,7 @@ addLookAngleBands = False
 applyCloudScore = True
 applyTDOM = True
 cloudScoreThresh = 20   
-performCloudScoreOffset = False #Only need to set to True if running RTFD over bright areas (not the case if only running over dense trees. Can help avoid cloud masking commission over PJ forests)
+performCloudScoreOffset = False #Only need to set to True if running LAMDA over bright areas (not the case if only running over dense trees. Can help avoid cloud masking commission over PJ forests)
 cloudScorePctl = 10
 zScoreThresh = -1
 shadowSumThresh = 0.35
@@ -96,12 +96,9 @@ persistence_n_periods =3
 #If available, bring in preComputed cloudScore offsets and TDOM stats
 #Set to null if computing on-the-fly is wanted
 #These have been pre-computed for all CONUS, AK, and HI for MODIS. If outside these areas, set to None below
-cloudScoreTDOMStatsDir = 'projects/gtac-rtfd/assets/MODIS-CS-TDOM-Stats'
-# conuscloudScoreTDOMStats = ee.ImageCollection('projects/USFS/FHAAST/RTFD/TDOM_Stats')\
-#             .map(lambda img: img.updateMask(img.neq(-32768)))\
-           
+cloudScoreTDOMStatsDir = 'projects/gtac-lamda/assets/MODIS-CS-TDOM-Stats'
+ 
 cloudScoreTDOMStats = ee.ImageCollection(cloudScoreTDOMStatsDir).mosaic()
-# cloudScoreTDOMStats = conuscloudScoreTDOMStats.merge(akHICloudScoreTDOMStats).mosaic()
 
 preComputedCloudScoreOffset = cloudScoreTDOMStats.select(['cloudScore_p{}'.format(cloudScorePctl)])
 
@@ -136,9 +133,9 @@ transform_dict = {'AK': [240,0,-51375,0,-240,1512585],
                   'MX':[240,0,-2361915.0,0,-240,3177735.0]
                   }
 
-export_area_dict = {'AK':ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_main').merge(ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_se')),
-                    'AK_main': ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_main'),
-                    'AK_SE': ee.FeatureCollection('projects/gtac-rtfd/assets/Ancillary/AK_se'),
+export_area_dict = {'AK':ee.FeatureCollection('projects/gtac-lamda/assets/Ancillary/AK_main').merge(ee.FeatureCollection('projects/gtac-lamda/assets/Ancillary/AK_se')),
+                    'AK_main': ee.FeatureCollection('projects/gtac-lamda/assets/Ancillary/AK_main'),
+                    'AK_SE': ee.FeatureCollection('projects/gtac-lamda/assets/Ancillary/AK_se'),
                     'HI':ee.FeatureCollection("TIGER/2018/States").filter(ee.Filter.eq('NAME','Hawaii')),
                     'CONUS': ee.FeatureCollection('projects/lcms-292214/assets/CONUS-Ancillary-Data/conus'),
                     'MX':ee.FeatureCollection("FAO/GAUL/2015/level0").filter(ee.Filter.eq('ADM0_NAME','Mexico'))}
@@ -153,20 +150,20 @@ transform = transform_dict[exportAreaName]#Specify transform if scale is None an
 scale = None #Specify scale if transform is None
 
 #Google Cloud Storage bucket to export outputs to
-exportBucket ='rtfd-2021'
+exportBucket ='lamda-raw-outputs'
 
 #Bucket final outputs will be uploaded to
-deliverable_output_bucket = 'rtfd-delivery'
+deliverable_output_bucket = 'lamda-products'
 
 #Location to copy outputs to locally
-local_output_dir =r'Q:\RTFD_gee_method\Outputs_2021'# r'Q:\RTFD_gee_method\data7'
+local_output_dir =r'Q:\LAMDA_workspace\Outputs_Scratch'# r'Q:\RTFD_gee_method\data7'
 
 #Location of gsutil 
 #May need a full path to the location if it's not in the PATH
 gsutil_path = 'gsutil.cmd'
 
 #Regex to filter outputs
-output_filter_strings = ['*CONUS_RTFD*','*AK_RTFD*']#'*CONUS_RTFD_Z*ay2020*','*CONUS_RTFD_TDD*yrs2016-2020*']
+output_filter_strings = ['*CONUS_LAMDA*','*AK_LAMDA*']
 
 #Whether to export various outputs
 #Whether to export each individual raw z score or TDD trend slope
@@ -182,7 +179,7 @@ continuous_palette_chastain = ['a83800','ff5500','e0e0e0','a4ff73','38a800']
 continuous_palette_lcms =['d54309','3d4551','00a398']  
 continuous_palette = continuous_palette_chastain
 
-#Provide a key to find for each type of RTFD data (_TDD_ and _Z_ work fine for raw outputs)
+#Provide a key to find for each type of LAMDA data (_TDD_ and _Z_ work fine for raw outputs)
 #Main things to change are the stretch and stretch_mult to try out. 
 #The stretch is used to clip the complete raw data in a min max fashion, then the stretch_mult multiplies that number
 #For example, z scores typically go from around -10 to 10 at the tails
@@ -228,8 +225,13 @@ lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max()
 # Map.addLayer(lcmsTreeMask,{'min':1,'max':1,'palette':'080','classLegendDict':{'Trees':'080'}},'LCMS Trees',False)
 
 #Pull in AK and HI tree masks (no LCMS currently available across all of AK or any of HI)
-akTreeMask = ee.Image('projects/gtac-rtfd/assets/Ancillary/AK_forest_mask')
-hiTreeMask = ee.Image("USGS/NLCD_RELEASES/2016_REL/2016_HI").gte(10)
+# akTreeMask = ee.Image('projects/gtac-lamda/assets/Ancillary/AK_forest_mask')
+# hiTreeMask = ee.Image("USGS/NLCD_RELEASES/2016_REL/2016_HI").gte(10)
+tcc = ee.ImageCollection("USGS/NLCD_RELEASES/2016_REL")
+tcc = tcc.filter(ee.Filter.calendarRange(2010,endYear,'year'))
+tcc = tcc.map(lambda img:img.set('bns',img.bandNames()))
+tcc = tcc.filter(ee.Filter.listContains('bns','percent_tree_cover'))
+tcc = tcc.select(['percent_tree_cover']).max().gte(10).selfMask()
 
 global_tcc = ee.ImageCollection("NASA/MEASURES/GFCC/TC/v3")
 global_tcc= global_tcc.filter(ee.Filter.eq('year',2015)).mosaic().select([0]);
@@ -242,8 +244,9 @@ global_tree = global_tcc.gte(10).selfMask()
 # Map.addLayer(akTreeMask,{},'AK tree')
 #Mosaic all tree masks
 #Set to None if applying a tree mask isn't needed
-tree_mask = ee.Image.cat([lcmsTreeMask,akTreeMask,hiTreeMask,global_tree,hansen]).reduce(ee.Reducer.max()).selfMask()
-# Map.addLayer(tree_mask,{},'all tree mask')
+tree_mask = ee.Image.cat([lcmsTreeMask,tcc,hansen]).reduce(ee.Reducer.max()).selfMask()
+# Map.addLayer(tree_mask,{'palette':'0D0'},'all tree mask')
+# Map.view()
 # exportToDriveWrapper(tree_mask,'tree-export-test','test',roi= exportArea,scale= None,crs = crs,transform = transform,outputNoData = 255)
 ####################################################################################################
 #Function calls and scratch space
@@ -259,8 +262,8 @@ tree_mask = ee.Image.cat([lcmsTreeMask,akTreeMask,hiTreeMask,global_tree,hansen]
 #   computeCloudScoreTDOMStats(2018,2021,cs_dates[exportAreaName][0],cs_dates[exportAreaName][1],export_area_dict[exportAreaName],cloudScoreTDOMStatsDir,exportAreaName,crs_dict[exportAreaName],transform_dict[exportAreaName])
 
 
-#Run RTFD using parameters above
-#It will overwrite outputs if they already exist in cloudStorage
+#Run LAMDA using parameters above
+#It will not overwrite outputs if they already exist in cloudStorage
 
 # tracking_filenames = rtfd_wrapper(analysisYears, startJulians, nDays , zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope)
 
@@ -275,9 +278,9 @@ if __name__ == '__main__':
     transform = transform_dict[exportAreaName]
     nDays = nDaysDict[exportAreaName]
     exportArea = export_area_dict[exportAreaName]
-    p = Process(target=operational_rtfd, args=(initialStartJulian,frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket,))
+    p = ll.Process(target=ll.operational_lamda, args=(initialStartJulian,frequency,nDays, zBaselineLength, tddEpochLength, baselineGap , indexNames,zThresh,slopeThresh,zReducer, tddAnnualReducer,zenithThresh,addLookAngleBands,applyCloudScore, applyTDOM,cloudScoreThresh,performCloudScoreOffset,cloudScorePctl, zScoreThresh, shadowSumThresh, contractPixels,dilatePixels,resampleMethod,preComputedCloudScoreOffset,preComputedTDOMIRMean,preComputedTDOMIRStdDev, tree_mask,crs,transform, scale,exportBucket,exportAreaName,exportArea,exportRawZ,exportRawSlope,local_output_dir,gsutil_path,crs_dict,post_process_dict,persistence_n_periods,deliverable_output_bucket,))
     p.start()
-  limitProcesses(1)
+  ll.limitProcesses(1)
 
 
 # calc_persistence_wrapper(local_output_dir,exportAreaName,indexNames,time.localtime()[0], post_process_dict)
@@ -299,5 +302,5 @@ if __name__ == '__main__':
   # tml.trackTasks2()
 
 # tml.failedTasks()
-# tml.batchCancel()
+# ll.tml.batchCancel()
 # tml.trackTasks2()

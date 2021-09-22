@@ -5,11 +5,11 @@
 		    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
         	<meta content="utf-8" http-equiv="encoding">
         	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-	        <meta name="description" content="USDA Forest Service RTFD Viewer ">
+	        <meta name="description" content="USDA Forest Service LAMDA Viewer ">
 	        <meta name="keywords" content="Landscape, Change, Forestry, USDA, Forest Service, Remote Sensing, Earth Engine">
 	        <meta name="author" content="Ian Housman">
 
-		    <title>RTFD Product Downloads</title>
+		    <title>LAMDA Product Downloads</title>
 
 		    <!-- Latest compiled and minified CSS -->
 			<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
@@ -38,11 +38,11 @@
 			  .topbar{
 			  	font-size: 1.5em;
 			  }
-			  .rtfd-link{
+			  .lamda-link{
 			  	color:#00BFA5;
 			  	font-size:0.8em;
 			  }
-			  .rtfd-link:hover{
+			  .lamda-link:hover{
 			  	color:#B2ECE4;
 			  	transition-duration: 0.5s;
 			  }
@@ -77,7 +77,7 @@
     	
 		<nav  id = 'top-nav' class="navbar navbar-expand-sm bg-black navbar-dark topbar fixed-top">
 			<div class="container-fluid">
-		  		<h1 class = 'mr-5'>RTFD Downloads</h1>
+		  		<h1 class = 'mr-5'>LAMDA Downloads</h1>
 
 		  		<ul  class="navbar-nav" id = 'navbar'></ul>
 		  	</div>
@@ -89,7 +89,7 @@
 
 		<div  class = 'bg-black container-fluid'>
 			
-			<iframe  id = 'viewer-frame' src="./output-viewer/index.html" title="LCMS data viewer"></iframe>
+			<iframe  id = 'viewer-frame' src="./lamda-viewer/index.html" title="LAMDA Viewer"></iframe>
 		</div>
 		
 	 
@@ -97,20 +97,20 @@
 	    <script type="text/javascript">
 	    	$('#loading-label').show();
 	    	$('#title-label').hide();
-	    	function load_available_rtfd(){
+	    	function load_available_lamda(){
 	    		var topNavHeight = $('#top-nav').innerHeight()
 	    		$('#viewer-frame').height(window.innerHeight-(topNavHeight*1.2));
 	    		$('#viewer-frame').width(window.innerWidth-50);
 	    		// $('#viewer-frame').css('padding-top', `${topNavHeight}px`);
-	    		var setup_dict = {	'persistence':{'dropdown_id':'persistence-dropdown','dropdown_label':'RTFD Persistence','ending':'_persistence.tif'},
-	    							'eight_bit':{'dropdown_id':'eight-bit-dropdown','dropdown_label':'RTFD 8-bit','ending':'_8bit.tif'},
+	    		var setup_dict = {	'persistence':{'dropdown_id':'persistence-dropdown','dropdown_label':'LAMDA Persistence','ending':'_persistence.tif'},
+	    							'eight_bit':{'dropdown_id':'eight-bit-dropdown','dropdown_label':'LAMDA 8-bit','ending':'_8bit.tif'},
 	    							
-	    							'raw':{'dropdown_id':'raw-dropdown','dropdown_label':'RTFD Raw','ending':'.tif'}}
+	    							'raw':{'dropdown_id':'raw-dropdown','dropdown_label':'LAMDA Raw','ending':'.tif'}}
 
 	    		var study_area_dict = {'CONUS':{'dropdown_id':'conus','dropdown_label':'CONUS','start':'CONUS'},
 	    								'AK':{'dropdown_id':'AK','dropdown_label':'AK','start':'AK'}}
 	    		
-		    	var bucketName = 'rtfd-delivery'
+		    	var bucketName = 'lamda-products'
 		    	var id = 1;
 		    	$.ajax({
 			        type: 'GET',
@@ -132,12 +132,12 @@
 		    					var nm = p.name.split('.tif')[0]
 		    					// console.log(nm)
 		    					if(already_added.indexOf(p.mediaLink) == -1){
-		    						$(`#${setup_dict[k].dropdown_id}_${study_area_dict[sak].dropdown_id}`).append(`<li class="list-group-item bg-black" id = "list-entry-${id}"><a class = "rtfd-link" href = '${p.mediaLink}'>${p.name}</a>
+		    						$(`#${setup_dict[k].dropdown_id}_${study_area_dict[sak].dropdown_id}`).append(`<li class="list-group-item bg-black" id = "list-entry-${id}"><a class = "lamda-link" href = '${p.mediaLink}'>${p.name}</a>
 		    							
 		    							</li>`)
 		    						if(k!== 'raw'){
 		    							console.log(k + ' '+nm)
-		    							$(`#list-entry-${id}`).append(`<img   title = 'Click this image and hold to make bigger' class = 'pl-5' height=50 src="https://storage.googleapis.com/rtfd-delivery/${nm}.jpg"></img>`)
+		    							$(`#list-entry-${id}`).append(`<img   title = 'Click this image and hold to make bigger' class = 'pl-5' height=50 src="https://storage.googleapis.com/${bucketName}/${nm}.jpg"></img>`)
 		    							id++;
 		    						}
 					        		already_added.push(p.mediaLink)
@@ -149,7 +149,7 @@
 			    
 
 			            $(`#navbar`).append(`<li class="nav-item " id = "viewer-nav">
-									      <a class="nav-link" href="#viewer-frame">RTFD Viewer</a>
+									      <a class="nav-link" href="#viewer-frame">LAMDA Viewer</a>
 									    </li>`)
 
 
@@ -157,7 +157,7 @@
 		
 			    }
 			    $(document).ready(function(){
-			    	load_available_rtfd()
+			    	load_available_lamda()
 			    })
 			   window.addEventListener('resize',function(){
 			    	console.log('resized')

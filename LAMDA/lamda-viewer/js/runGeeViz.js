@@ -9,7 +9,7 @@ var getDate = function(name,jd_split_string = '_jd'){
  }
 function runGeeViz(){
 
-	var bucketName = 'rtfd-delivery';
+	var bucketName = 'lamda-products';
 	var study_areas = ['CONUS','AK'];
 	var output_types = ['Z','TDD'];
 

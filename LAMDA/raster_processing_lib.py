@@ -13,7 +13,7 @@
 	 See the License for the specific language governing permissions and
 	 limitations under the License.
 """
-#Script to support the Real Time Forest Disturbance (RTFD) Mapper for local post-procesing
+#Script to support the LAndscape Monitoring and Detection Application (LAMDA) for local post-procesing
 ####################################################################################################
 from osgeo import gdal
 from osgeo import gdal_array

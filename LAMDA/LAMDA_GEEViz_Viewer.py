@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 """
-#Script to view RTFD outputs
+#Script to view LAMDA outputs
 ####################################################################################################
 ####################################################################################################
 import  geeViz.geeView as geeView
