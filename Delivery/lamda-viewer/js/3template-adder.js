@@ -595,7 +595,7 @@ addSubAccordianCard('tools-accordian','query-label','query-div','Query Visible M
 // $('#pixel-chart-div').append(staticTemplates.showChartButton);
 // addAccordianContainer('area-tools-collapse-div','area-tools-accordian');
 if(mode === 'geeViz'){
-  $('#pixel-chart-label').remove();
+  // $('#pixel-chart-label').remove();
   // $('#share-button').remove();
    $('#tools-accordian').append(`<div class="dropdown-divider" ></div>`);
    //Sync tooltip toggle
