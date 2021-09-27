@@ -596,7 +596,7 @@ addSubAccordianCard('tools-accordian','query-label','query-div','Query Visible M
 // addAccordianContainer('area-tools-collapse-div','area-tools-accordian');
 if(mode === 'geeViz'){
   $('#pixel-chart-label').remove();
-  $('#share-button').remove();
+  // $('#share-button').remove();
    $('#tools-accordian').append(`<div class="dropdown-divider" ></div>`);
    //Sync tooltip toggle
   var tShowToolTipModal = true
