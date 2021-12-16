@@ -58,8 +58,9 @@ function runGeeViz(){
 			        		var eight_bit_viz = {'min':0,'max':254,'palette':continuous_palette_chastain,'dateFormat':'YYYYMMdd','advanceInterval':'day'};
 							var raw_viz = {'min':output_type_stretch[output_type]['stretch']*-1,'max':output_type_stretch[output_type]['stretch'],'palette':continuous_palette_chastain,'dateFormat':'YYYYMMdd','advanceInterval':'day'};
 							
-							var persistence_viz = {'min':0,'max':3,'palette':'e1e1e1,ffaa00,e10000,e100c5','dateFormat':'YYYYMMdd','advanceInterval':'day','classLegendDict':{'0 Detections':'e1e1e1','1 Detection':'ffaa00','2 Detections':'e10000','3 Detections':'e100c5'}};
+							var persistence_viz = {'min':0,'max':3,'palette':'e1e1e1,ffaa00,e10000,e100c5','dateFormat':'YYYYMMdd','advanceInterval':'day','classLegendDict':{'0 Detections':'e1e1e1','1 Detection':'ffaa00','2 Detections':'e10000','3 or More Detections':'e100c5'}};
 
+							var persistence_viz = {'min':1,'max':3,'palette':'ffaa00,e10000,e100c5','dateFormat':'YYYYMMdd','advanceInterval':'day','classLegendDict':{'1 Detection':'ffaa00','2 Detections':'e10000','3 or More Detections':'e100c5'}};
 			        		var namesT = names.filter(n => n.indexOf(study_area)== 0)
 			        		namesT = namesT.filter(n => n.indexOf(output_type) > -1)
 			        		
@@ -94,6 +95,7 @@ function runGeeViz(){
 						    
 						    var persistence_c = persistence.map(function(t){
 			        			var img = ee.Image.loadGeoTIFF(`gs://${bucketName}/${t}`)
+			        			img = img.selfMask()
 			        			img = img.set('system:time_start',getDate(t,'_jds'))
 			        			return img
 			        		})
