@@ -1,3 +1,24 @@
+function addCollapse(containerID,collapseLabelID,collapseID,collapseLabel, collapseLabelIcon,show,onclick,toolTip){
+	var collapsed;
+	if(toolTip === undefined || toolTip === null){toolTip = ''}
+	if(show === true || show === 'true' || show === 'show'){show = 'show';collapsed = ''; }else{show = '';collapsed='collapsed'}
+	var collapseTitleDiv = `<header title="${toolTip}" class="panel-heading px-3 py-2 " role="tab" id="${collapseLabelID}" onclick = '${onclick}'>
+	<h2 class="p-0 m-0 panel-title  ${collapsed}" data-toggle="collapse"  href="#${collapseID}" id="${collapseLabelID}-label" aria-expanded="${show}" aria-controls="${collapseID}"> <a class = 'collapse-title' role='img'>
+	${collapseLabelIcon} ${collapseLabel} </a></h2><span id="${collapseLabelID}-message"</span></header>`;
+
+	var collapseDiv =`<section id="${collapseID}" class="panel-collapse collapse panel-body ${show} px-5 py-0" role="tabpanel" aria-labelledby="${collapseLabelID}"></section>`;
+    $('#'+containerID).prepend(`<div role="listitem" id="${collapseLabelID}-${collapseID}"></div>`)
+	$(`#${collapseLabelID}-${collapseID}`).append(collapseTitleDiv);
+	$(`#${collapseLabelID}-${collapseID}`).append(collapseDiv);
+}
+$('#layer-list-collapse-label-label:first-child').html('LAMDA Data');
+$('#title-banner').html(`<h1 id = 'title-banner' title="" class = 'gray pl-4 pb-0 m-0 text-center' style="font-weight:100;font-family: 'Roboto';"><span class = 'gray' style="font-weight:1000;font-family: 'Roboto Black', sans-serif;"> LAMDA </span>Viewer </h1>`);
+
+addCollapse('sidebar-left','parameters-collapse-label','parameters-collapse-div','PARAMETERS','<i role="img" class="fa fa-sliders mr-1" aria-hidden="true"></i>',false,null,'Adjust parameters used to filter and sort LAMDA products');
+var defaultYear = 2022;
+addRangeSlider('parameters-collapse-div','Year','year',2021,2022,defaultYear,1,'year-slider','','Year of LAMDA products to show');
+$('#parameters-collapse-div').append(staticTemplates.reRunButton);
+
 showMessage('Loading',staticTemplates.loadingModal);
 var getDate = function(name,jd_split_string = '_jd'){
   var yr = name.split(jd_split_string)[0]
@@ -27,7 +48,7 @@ var getDate = function(name,jd_split_string = '_jd'){
   return joined;
 }
 function runGeeViz(){
-
+	$('#layer-list-collapse-label-label:first-child').html('LAMDA Data: '+year.toString());
 	var bucketName = 'lamda-products';
 	var study_areas = ['CONUS','AK'];
 	var output_types = ['Z','TDD'];
@@ -48,6 +69,8 @@ function runGeeViz(){
 			    		
 			    	var continuous_palette_chastain = ['a83800','ff5500','e0e0e0','a4ff73','38a800'];
 		        json = json.items;
+		        var selectedYear = year.toString()
+		        json = json.filter((f)=> f.name.indexOf('ay'+selectedYear)>-1 || f.name.indexOf(selectedYear + '_jd')>-1);
 			        var names = json.map(nm => nm.name)
 			        names = names.filter(nm => nm.indexOf('.tif')==nm.length-4)
 			        
@@ -68,22 +91,24 @@ function runGeeViz(){
 						    var persistence = namesT.filter(i => i.indexOf('_persistence')>-1)
 						    var raws = namesT.filter(i => i.indexOf('_8bit')==-1 && i.indexOf('_persistence')==-1)
 			        		
+						    if(raws.length > 0){
+						    	var raw_c = raws.map(function(t){
+				        			var img = ee.Image.loadGeoTIFF(`gs://${bucketName}/${t}`).divide(output_type_stretch[output_type]['scale_factor'])
+				        			img = img.set('system:time_start',getDate(t))
+				        			return img
+					        		})
+					        		raw_c = ee.ImageCollection.fromImages(raw_c).select([0],[`LAMDA ${output_type}`])
+					        		if(joined == undefined){
+					        			joined = raw_c;
+					        		}else{
+					        			joined = joinCollections(joined,raw_c)
+					        		}
 
-						    var raw_c = raws.map(function(t){
-			        			var img = ee.Image.loadGeoTIFF(`gs://${bucketName}/${t}`).divide(output_type_stretch[output_type]['scale_factor'])
-			        			img = img.set('system:time_start',getDate(t))
-			        			return img
-			        		})
-			        		raw_c = ee.ImageCollection.fromImages(raw_c).select([0],[`LAMDA ${output_type}`])
-			        		if(joined == undefined){
-			        			joined = raw_c;
-			        		}else{
-			        			joined = joinCollections(joined,raw_c)
-			        		}
+								Map2.addTimeLapse(raw_c, raw_viz,`${study_area} ${output_type} raw`)
+								    
 
-						    Map2.addTimeLapse(raw_c, raw_viz,`${study_area} ${output_type} raw`)
+						    }
 						    
-
 			       //  		var eight_bit_c = eight_bits.map(function(t){
 			       //  			var img = ee.Image.loadGeoTIFF(`gs://${bucketName}/${t}`)
 			       //  			img = img.set('system:time_start',getDate(t))
@@ -92,26 +117,28 @@ function runGeeViz(){
 			       //  		eight_bit_c = ee.ImageCollection.fromImages(eight_bit_c)
 			        		
 						    // Map2.addTimeLapse(eight_bit_c, eight_bit_viz,`${study_area} ${output_type} 8 bit`)
-						    
-						    var persistence_c = persistence.map(function(t){
-			        			var img = ee.Image.loadGeoTIFF(`gs://${bucketName}/${t}`)
-			        			img = img.selfMask()
-			        			img = img.set('system:time_start',getDate(t,'_jds'))
-			        			return img
-			        		})
-			        		persistence_c = ee.ImageCollection.fromImages(persistence_c)
-			        		
-						    Map2.addTimeLapse(persistence_c,persistence_viz,`${study_area} ${output_type} persistence`)
+						    if(persistence.length>0){
+						    	var persistence_c = persistence.map(function(t){
+				        			var img = ee.Image.loadGeoTIFF(`gs://${bucketName}/${t}`)
+				        			img = img.selfMask()
+				        			img = img.set('system:time_start',getDate(t,'_jds'))
+				        			return img
+				        		})
+				        		persistence_c = ee.ImageCollection.fromImages(persistence_c)
+				        		
+							    Map2.addTimeLapse(persistence_c,persistence_viz,`${study_area} ${output_type} persistence`)
+							    
+						    }
 						    
 			        	})
-			        	pixelChartCollections[`${study_area}-pixel-charting`] =  {
-						          'label':`${study_area} Time Series`,
-						          'collection':joined,
-						          'xAxisLabel':'Date',
-						          'tooltip':'Query LAMDA raw time series',
-						          'chartColors':['a83800','ff5500'],
-						          'semiSimpleDate':true
-						      };
+			        	// pixelChartCollections[`${study_area}-pixel-charting`] =  {
+						      //     'label':`${study_area} Time Series`,
+						      //     'collection':joined,
+						      //     'xAxisLabel':'Date',
+						      //     'tooltip':'Query LAMDA raw time series',
+						      //     'chartColors':['a83800','ff5500'],
+						      //     'semiSimpleDate':true
+						      // };
 			        })
 			        populatePixelChartDropdown();
 			        // setTimeout(function(){$('#close-modal-button').click();$('#CONUS-Z-8-bit-timelapse-1-name-span').click()}, 2500);

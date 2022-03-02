@@ -26,9 +26,9 @@ Map = ll.Map
 
 #Parameters used for both LAMDA Z-Score and TDD methods
 #Specify years to run LAMDA Z-Score and TDD methods
-analysisYears = [2021]
+analysisYears = [2022]
 
-initialStartJulian = 145
+initialStartJulian = 145-(8*14)
 frequency = 8
 # nDays = 16#32 #16 for CONUS, something like 64 or so for HI, 32 or so for AK
 nDaysDict = {
