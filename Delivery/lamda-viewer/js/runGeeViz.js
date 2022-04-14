@@ -69,6 +69,7 @@ function runGeeViz(){
 			    		
 			    	var continuous_palette_chastain = ['a83800','ff5500','e0e0e0','a4ff73','38a800'];
 		        json = json.items;
+		        console.log(json);
 		        var selectedYear = year.toString()
 		        json = json.filter((f)=> f.name.indexOf('ay'+selectedYear)>-1 || f.name.indexOf(selectedYear + '_jd')>-1);
 			        var names = json.map(nm => nm.name)

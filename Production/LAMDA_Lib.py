@@ -365,8 +365,8 @@ def sync_outputs(gs_bucket,output_folder,output_filter_strings, gsutil_path = 'C
 	# o = open(copy_done_file,'w')
 	# o.write(','.join(commands))
 	# o.close()
-def upload_outputs(exportAreaName,local_folder,gs_bucket, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
-	sync_command = '{} -m cp -n -r {}/{}* gs://{}'.format(gsutil_path,local_folder,exportAreaName,gs_bucket)
+def upload_outputs(exportAreaName,local_folder,gs_bucket, extension, gsutil_path = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk/bin/gsutil.cmd'):
+	sync_command = '{} -m cp -n -r {}/{}*.{} gs://{}'.format(gsutil_path,local_folder,exportAreaName,extension,gs_bucket)
 	print(sync_command)
 	call = subprocess.Popen(sync_command)
 	
@@ -488,4 +488,5 @@ def operational_lamda(first_run, frequency,nDays, zBaselineLength, tddEpochLengt
   calc_persistence_wrapper(local_output_dir, exportAreaName,indexNames,year,post_process_dict,persistence_n_periods)
 
   # #Upload outputs 
-  upload_outputs(exportAreaName,local_output_dir,deliverable_output_bucket)
+  upload_outputs(exportAreaName,local_output_dir,deliverable_output_bucket,'tif')
+  upload_outputs(exportAreaName,local_output_dir,deliverable_output_bucket,'jpg')
