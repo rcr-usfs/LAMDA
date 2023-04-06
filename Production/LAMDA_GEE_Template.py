@@ -26,7 +26,7 @@ Map = ll.Map
 
 #Parameters used for both LAMDA Z-Score and TDD methods
 #Specify years to run LAMDA Z-Score and TDD methods
-analysisYears = [2022]
+analysisYears = [2023]
 
 initialStartJulian = 145-(8*14)
 frequency = 8
@@ -217,7 +217,7 @@ startYear = min(analysisYears) - max([tddEpochLength,zBaselineLength]) - baselin
 endYear = max(analysisYears)
 
 #Pull in lcms data for masking
-lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2020-5").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
+lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2021-7").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
 # lcmsChange = lcms.select(['Change'])
 # lcmsChange = lcmsChange.map(lambda img: img.gte(2).And(img.lte(4))).max().selfMask()
 lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max()

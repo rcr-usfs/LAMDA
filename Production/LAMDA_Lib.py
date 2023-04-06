@@ -17,13 +17,13 @@
 #This method is a pixel-wise adaptation of the original RTFD (Real Time Forest Disturbance) algorithms
 #Intended to work within the geeViz package
 ####################################################################################################
-import json,time,glob,ee,os,subprocess
+import json,time,glob,ee,os,subprocess,multiprocessing
 from google.cloud import storage
 from multiprocessing import Process
-import multiprocessing
+
 #Initialize GEE - using service account if possible
 try:
-	key_file = r"Q:\LAMDA_workspace\credentials\gtac-rtfd-b50238099cd8.json"
+	key_file = r"Q:\LAMDA_workspace\credentials\gtac-lamda-1bfc7752157b.json"
 	ee.Initialize(ee.ServiceAccountCredentials(json.load(open(key_file)), key_file))
 	print('Successfully initialized using service account GEE credentials')
 except Exception as e:
@@ -457,7 +457,7 @@ def limitProcesses(processLimit):
 
 
 #Function to get the most recent date of available MODIS to run LAMDA up until that date
-def get_most_recent_MODIS_date(collection = "MODIS/006/MYD09GQ"):
+def get_most_recent_MODIS_date(collection = "MODIS/061/MYD09GQ"):
 	t = time.localtime()
 	d = ee.Date.fromYMD(t[0],t[1],t[2])
 	c = ee.ImageCollection(collection).filterDate(d.advance(-2,'month'),d).sort('system:time_start',False)
