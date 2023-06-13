@@ -217,7 +217,7 @@ startYear = min(analysisYears) - max([tddEpochLength,zBaselineLength]) - baselin
 endYear = max(analysisYears)
 
 #Pull in lcms data for masking
-lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2021-7").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
+lcms = ee.ImageCollection("USFS/GTAC/LCMS/v2022-8").filter(ee.Filter.calendarRange(startYear,endYear,'year'))
 # lcmsChange = lcms.select(['Change'])
 # lcmsChange = lcmsChange.map(lambda img: img.gte(2).And(img.lte(4))).max().selfMask()
 lcmsTreeMask = lcms.select(['Land_Cover']).map(lambda img: img.lte(6)).max()
